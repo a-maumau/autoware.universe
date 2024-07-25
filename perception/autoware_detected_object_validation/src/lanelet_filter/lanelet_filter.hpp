@@ -19,6 +19,7 @@
 #include "autoware/universe_utils/geometry/geometry.hpp"
 #include "autoware/universe_utils/ros/debug_publisher.hpp"
 #include "autoware/universe_utils/ros/published_time_publisher.hpp"
+#include "autoware/universe_utils/system/time_keeper.hpp"
 #include "autoware_lanelet2_extension/utility/utilities.hpp"
 
 #include <rclcpp/rclcpp.hpp>
@@ -50,6 +51,10 @@ public:
 private:
   void objectCallback(const autoware_perception_msgs::msg::DetectedObjects::ConstSharedPtr);
   void mapCallback(const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr);
+
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
+  //rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr publisher_;
 
   rclcpp::Publisher<autoware_perception_msgs::msg::DetectedObjects>::SharedPtr object_pub_;
   rclcpp::Subscription<autoware_map_msgs::msg::LaneletMapBin>::SharedPtr map_sub_;

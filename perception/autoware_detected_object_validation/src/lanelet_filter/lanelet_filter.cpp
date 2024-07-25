@@ -15,6 +15,7 @@
 #include "lanelet_filter.hpp"
 
 #include "autoware/universe_utils/geometry/geometry.hpp"
+#include "autoware/universe_utils/system/time_keeper.hpp"
 #include "autoware_lanelet2_extension/utility/message_conversion.hpp"
 #include "autoware_lanelet2_extension/utility/query.hpp"
 #include "object_recognition_utils/object_recognition_utils.hpp"
@@ -26,6 +27,8 @@
 #include <lanelet2_core/geometry/BoundingBox.h>
 #include <lanelet2_core/geometry/LaneletMap.h>
 #include <lanelet2_core/geometry/Polygon.h>
+
+#include <chrono>
 
 namespace autoware::detected_object_validation
 {
@@ -70,6 +73,12 @@ ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & nod
     std::make_unique<autoware::universe_utils::DebugPublisher>(this, "object_lanelet_filter");
   published_time_publisher_ =
     std::make_unique<autoware::universe_utils::PublishedTimePublisher>(this);
+
+  publisher_ =
+      this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>("processing_time", rclcpp::QoS{1});
+  time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(publisher_, &std::cerr);
+  //timer_ =
+  //    create_wall_timer(std::chrono::seconds(1), std::bind(&ObjectLaneletFilterNode::objectCallback, this));
 }
 
 void ObjectLaneletFilterNode::mapCallback(
@@ -83,6 +92,8 @@ void ObjectLaneletFilterNode::mapCallback(
 void ObjectLaneletFilterNode::objectCallback(
   const autoware_perception_msgs::msg::DetectedObjects::ConstSharedPtr input_msg)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("objectCallback", *time_keeper_);
+
   // Guard
   if (object_pub_->get_subscription_count() < 1) return;
 
@@ -131,6 +142,7 @@ bool ObjectLaneletFilterNode::filterObject(
   const lanelet::ConstLanelets & intersected_lanelets,
   autoware_perception_msgs::msg::DetectedObjects & output_object_msg)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("filterObject", *time_keeper_);
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
     bool filter_pass = true;
@@ -191,6 +203,7 @@ geometry_msgs::msg::Polygon ObjectLaneletFilterNode::setFootprint(
 LinearRing2d ObjectLaneletFilterNode::getConvexHull(
   const autoware_perception_msgs::msg::DetectedObjects & detected_objects)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("getConvexHull", *time_keeper_);
   MultiPoint2d candidate_points;
   for (const auto & object : detected_objects.objects) {
     const auto & pos = object.kinematics.pose_with_covariance.pose.position;
@@ -211,6 +224,7 @@ LinearRing2d ObjectLaneletFilterNode::getConvexHull(
 lanelet::ConstLanelets ObjectLaneletFilterNode::getIntersectedLanelets(
   const LinearRing2d & convex_hull)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("getIntersectedLanelets", *time_keeper_);
   namespace bg = boost::geometry;
 
   lanelet::ConstLanelets intersected_lanelets;
@@ -247,6 +261,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
   const autoware_perception_msgs::msg::DetectedObject & object,
   const lanelet::ConstLanelets & intersected_lanelets)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("isObjectOverlapLanelets", *time_keeper_);
   // if has bounding box, use polygon overlap
   if (utils::hasBoundingBox(object)) {
     Polygon2d polygon;
@@ -281,6 +296,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
 bool ObjectLaneletFilterNode::isPolygonOverlapLanelets(
   const Polygon2d & polygon, const lanelet::ConstLanelets & intersected_lanelets)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("isPolygonOverlapLanelets", *time_keeper_);
   for (const auto & lanelet : intersected_lanelets) {
     if (!boost::geometry::disjoint(polygon, lanelet.polygon2d().basicPolygon())) {
       return true;
@@ -293,6 +309,7 @@ bool ObjectLaneletFilterNode::isSameDirectionWithLanelets(
   const lanelet::ConstLanelets & lanelets,
   const autoware_perception_msgs::msg::DetectedObject & object)
 {
+  //autoware::universe_utils::ScopedTimeTrack st("isSameDirectionWithLanelets", *time_keeper_);
   const double object_yaw = tf2::getYaw(object.kinematics.pose_with_covariance.pose.orientation);
   const double object_velocity_norm = std::hypot(
     object.kinematics.twist_with_covariance.twist.linear.x,
