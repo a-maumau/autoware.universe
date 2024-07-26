@@ -92,7 +92,7 @@ void ObjectLaneletFilterNode::mapCallback(
 void ObjectLaneletFilterNode::objectCallback(
   const autoware_perception_msgs::msg::DetectedObjects::ConstSharedPtr input_msg)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("objectCallback", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
 
   // Guard
   if (object_pub_->get_subscription_count() < 1) return;
@@ -142,7 +142,7 @@ bool ObjectLaneletFilterNode::filterObject(
   const lanelet::ConstLanelets & intersected_lanelets,
   autoware_perception_msgs::msg::DetectedObjects & output_object_msg)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("filterObject", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
     bool filter_pass = true;
@@ -203,7 +203,7 @@ geometry_msgs::msg::Polygon ObjectLaneletFilterNode::setFootprint(
 LinearRing2d ObjectLaneletFilterNode::getConvexHull(
   const autoware_perception_msgs::msg::DetectedObjects & detected_objects)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("getConvexHull", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   MultiPoint2d candidate_points;
   for (const auto & object : detected_objects.objects) {
     const auto & pos = object.kinematics.pose_with_covariance.pose.position;
@@ -224,7 +224,7 @@ LinearRing2d ObjectLaneletFilterNode::getConvexHull(
 lanelet::ConstLanelets ObjectLaneletFilterNode::getIntersectedLanelets(
   const LinearRing2d & convex_hull)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("getIntersectedLanelets", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   namespace bg = boost::geometry;
 
   lanelet::ConstLanelets intersected_lanelets;
@@ -261,7 +261,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
   const autoware_perception_msgs::msg::DetectedObject & object,
   const lanelet::ConstLanelets & intersected_lanelets)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("isObjectOverlapLanelets", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   // if has bounding box, use polygon overlap
   if (utils::hasBoundingBox(object)) {
     Polygon2d polygon;
@@ -296,7 +296,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
 bool ObjectLaneletFilterNode::isPolygonOverlapLanelets(
   const Polygon2d & polygon, const lanelet::ConstLanelets & intersected_lanelets)
 {
-  //autoware::universe_utils::ScopedTimeTrack st("isPolygonOverlapLanelets", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   for (const auto & lanelet : intersected_lanelets) {
     if (!boost::geometry::disjoint(polygon, lanelet.polygon2d().basicPolygon())) {
       return true;
