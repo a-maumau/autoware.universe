@@ -320,7 +320,6 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
   //const lanelet::ConstLanelets & intersected_lanelets,
   const bgi::rtree<BoxAndLanelet, bgi::rstar<16>> & local_rtree)
 {
-  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   // if has bounding box, use polygon overlap
   if (utils::hasBoundingBox(object)) {
     autoware::universe_utils::ScopedTimeTrack st_1("bbox_filter", *time_keeper_);
@@ -349,8 +348,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     std::vector<BoxAndLanelet> candidates;
     bg::model::box<bg::model::d2::point_xy<double>> bbox2d_convex_hull;
     bg::envelope(convex_hull, bbox2d_convex_hull);
-    local_rtree.query(bgi::disjoint(bbox2d_convex_hull), std::back_inserter(candidates));
-    st_2.~ScopedTimeTrack();
+    local_rtree.query(bgi::intersects(bbox2d_convex_hull), std::back_inserter(candidates));
 
     autoware::universe_utils::ScopedTimeTrack st_3("no bbox filter: main loop", *time_keeper_);
     // if object do not have bounding box, check each footprint is inside polygon
