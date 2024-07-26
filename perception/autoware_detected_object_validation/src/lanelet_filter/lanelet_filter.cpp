@@ -23,12 +23,12 @@
 #include <boost/geometry/algorithms/convex_hull.hpp>
 #include <boost/geometry/algorithms/disjoint.hpp>
 #include <boost/geometry/algorithms/intersects.hpp>
+#include <boost/geometry/index/rtree.hpp>
 
 #include <lanelet2_core/geometry/BoundingBox.h>
+#include <lanelet2_core/geometry/Lanelet.h>
 #include <lanelet2_core/geometry/LaneletMap.h>
 #include <lanelet2_core/geometry/Polygon.h>
-
-#include <chrono>
 
 namespace autoware::detected_object_validation
 {
@@ -115,13 +115,58 @@ void ObjectLaneletFilterNode::objectCallback(
   const auto convex_hull = getConvexHull(transformed_objects);
 
   // get intersected lanelets
-  lanelet::ConstLanelets intersected_lanelets = getIntersectedLanelets(convex_hull);
+  //lanelet::ConstLanelets intersected_lanelets = getIntersectedLanelets(convex_hull);
+  std::vector<BoxAndLanelet> intersected_lanelets = getIntersectedLanelets(convex_hull);
+  // create local R-tree
+  //std::vector<box, lanelet::Lanelet> rtree_nodes;
+  //std::vector<std::pair<lanelet::BoundingBox2d, lanelet::Lanelet>> rtree_nodes;
+  //for (const auto& lanelet : intersected_lanelets) {
+  //    //const lanelet::BoundingBox2d lanelet_bbox2d = lanelet::geometry::boundingBox2d(lanelet);
+  //    //point minPoint(lanelet_bbox2d.min().x(), lanelet_bbox2d.min().y());
+  //    //point maxPoint(lanelet_bbox2d.max().x(), lanelet_bbox2d.max().y());
+  //    //box bbox2d(minPoint, maxPoint);
+  //    //rtree_nodes.emplace_back(std::make_pair(bbox2d, lanelet));
+  //    auto bbox = lanelet::geometry::boundingBox2d(lanelet);
+  //    rtree_nodes.emplace_back(bbox, lanelet);
+  //}
+  bgi::rtree<BoxAndLanelet, bgi::rstar<16>> local_rtree;
+  //for (auto i = 0UL; i < intersected_lanelets.size(); ++i) {
+  for (const auto& bbox_and_lanelet : intersected_lanelets) {
+    //const auto box = boost::geometry::return_envelope<tier4_autoware_utils::Box2d>(geometries[i]);
+    //const auto box = lanelet::geometry::boundingBox2d(intersected_lanelets[i]);
+    local_rtree.insert(bbox_and_lanelet);
+  }
+
+  // Using R*-tree parameters
+  //bgi::rtree<value, bgi::rstar<16>> local_rtree(rtree_nodes.begin(), rtree_nodes.end());
+
+
+  // Step 3: Detailed Search
+  /*
+  for (const auto& bbox : boundingBoxes) {
+      point minPoint(bbox.min().x(), bbox.min().y());
+      point maxPoint(bbox.max().x(), bbox.max().y());
+      box searchBox(minPoint, maxPoint);
+
+      std::vector<value> results;
+      local_rtree.query(bgi::intersects(searchBox), std::back_inserter(results));
+
+      for (const auto& result : results) {
+          const Lanelet& lanelet = result.second;
+          if (geometry::intersects(lanelet, bbox)) {
+              // Process the intersected lanelet
+              std::cout << "Intersected Lanelet ID: " << lanelet.id() << std::endl;
+          }
+      }
+  }
+  */
 
   // filtering process
   for (size_t index = 0; index < transformed_objects.objects.size(); ++index) {
     const auto & transformed_object = transformed_objects.objects.at(index);
     const auto & input_object = input_msg->objects.at(index);
-    filterObject(transformed_object, input_object, intersected_lanelets, output_object_msg);
+    //filterObject(transformed_object, input_object, intersected_lanelets, output_object_msg);
+    filterObject(transformed_object, input_object, local_rtree, output_object_msg);
   }
   object_pub_->publish(output_object_msg);
   published_time_publisher_->publish_if_subscribed(object_pub_, output_object_msg.header.stamp);
@@ -139,7 +184,8 @@ void ObjectLaneletFilterNode::objectCallback(
 bool ObjectLaneletFilterNode::filterObject(
   const autoware_perception_msgs::msg::DetectedObject & transformed_object,
   const autoware_perception_msgs::msg::DetectedObject & input_object,
-  const lanelet::ConstLanelets & intersected_lanelets,
+  const bgi::rtree<BoxAndLanelet, bgi::rstar<16>> & local_rtree,
+  //const lanelet::ConstLanelets & intersected_lanelets,
   autoware_perception_msgs::msg::DetectedObjects & output_object_msg)
 {
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
@@ -149,19 +195,20 @@ bool ObjectLaneletFilterNode::filterObject(
     // 1. is polygon overlap with road lanelets or shoulder lanelets
     if (filter_settings_.polygon_overlap_filter) {
       const bool is_polygon_overlap =
-        isObjectOverlapLanelets(transformed_object, intersected_lanelets);
+        //isObjectOverlapLanelets(transformed_object, intersected_lanelets);
+        isObjectOverlapLanelets(transformed_object, local_rtree);
       filter_pass = filter_pass && is_polygon_overlap;
     }
 
     // 2. check if objects velocity is the same with the lanelet direction
-    const bool orientation_not_available =
-      transformed_object.kinematics.orientation_availability ==
-      autoware_perception_msgs::msg::TrackedObjectKinematics::UNAVAILABLE;
-    if (filter_settings_.lanelet_direction_filter && !orientation_not_available) {
-      const bool is_same_direction =
-        isSameDirectionWithLanelets(intersected_lanelets, transformed_object);
-      filter_pass = filter_pass && is_same_direction;
-    }
+    //const bool orientation_not_available =
+    //  transformed_object.kinematics.orientation_availability ==
+    //  autoware_perception_msgs::msg::TrackedObjectKinematics::UNAVAILABLE;
+    //if (filter_settings_.lanelet_direction_filter && !orientation_not_available) {
+    //  const bool is_same_direction =
+    //    isSameDirectionWithLanelets(intersected_lanelets, transformed_object);
+    //  filter_pass = filter_pass && is_same_direction;
+    //}
 
     // push back to output object
     if (filter_pass) {
@@ -178,6 +225,8 @@ bool ObjectLaneletFilterNode::filterObject(
 geometry_msgs::msg::Polygon ObjectLaneletFilterNode::setFootprint(
   const autoware_perception_msgs::msg::DetectedObject & detected_object)
 {
+  // no need, it is fast
+  //autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   geometry_msgs::msg::Polygon footprint;
   if (detected_object.shape.type == autoware_perception_msgs::msg::Shape::BOUNDING_BOX) {
     const auto object_size = detected_object.shape.dimensions;
@@ -221,13 +270,14 @@ LinearRing2d ObjectLaneletFilterNode::getConvexHull(
 
 // fetch the intersected candidate lanelets with bounding box and then
 // check the intersections among the lanelets and the convex hull
-lanelet::ConstLanelets ObjectLaneletFilterNode::getIntersectedLanelets(
+//lanelet::ConstLanelets ObjectLaneletFilterNode::getIntersectedLanelets(
+std::vector<BoxAndLanelet> ObjectLaneletFilterNode::getIntersectedLanelets(
   const LinearRing2d & convex_hull)
 {
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
-  namespace bg = boost::geometry;
 
-  lanelet::ConstLanelets intersected_lanelets;
+  //lanelet::ConstLanelets intersected_lanelets;
+  std::vector<BoxAndLanelet> intersected_lanelets_with_bbox;
 
   // convert convex_hull to a 2D bounding box for searching in the LaneletMap
   bg::model::box<bg::model::d2::point_xy<double>> bbox2d_convex_hull;
@@ -249,17 +299,26 @@ lanelet::ConstLanelets ObjectLaneletFilterNode::getIntersectedLanelets(
          lanelet::AttributeValueString::Road ||
        lanelet.attribute(lanelet::AttributeName::Subtype).value() == "road_shoulder")) {
       if (boost::geometry::intersects(convex_hull, lanelet.polygon2d().basicPolygon())) {
-        intersected_lanelets.emplace_back(lanelet);
+        //intersected_lanelets.emplace_back(lanelet);
+        // create bbox using boost
+        lanelet::BoundingBox2d lanelet_bbox = lanelet::geometry::boundingBox2d(lanelet);
+        Point min_corner(lanelet_bbox.min().x(), lanelet_bbox.min().y());
+        Point max_corner(lanelet_bbox.max().x(), lanelet_bbox.max().y());
+        Box boost_bbox(min_corner, max_corner);
+
+        intersected_lanelets_with_bbox.emplace_back(std::make_pair(boost_bbox, lanelet));
       }
     }
   }
 
-  return intersected_lanelets;
+  //return intersected_lanelets;
+  return intersected_lanelets_with_bbox;
 }
 
 bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
   const autoware_perception_msgs::msg::DetectedObject & object,
-  const lanelet::ConstLanelets & intersected_lanelets)
+  //const lanelet::ConstLanelets & intersected_lanelets,
+  const bgi::rtree<BoxAndLanelet, bgi::rstar<16>> & local_rtree)
 {
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   // if has bounding box, use polygon overlap
@@ -274,9 +333,26 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       polygon.outer().emplace_back(point_transformed.x, point_transformed.y);
     }
     polygon.outer().push_back(polygon.outer().front());
-    return isPolygonOverlapLanelets(polygon, intersected_lanelets);
+    //return isPolygonOverlapLanelets(polygon, intersected_lanelets);
+    return isPolygonOverlapLaneletsRtree(polygon, local_rtree);
   } else {
-    autoware::universe_utils::ScopedTimeTrack st_2("non_bbox_filter", *time_keeper_);
+    autoware::universe_utils::ScopedTimeTrack st_2("no bbox filter: pre process", *time_keeper_);
+    // take convex hull
+    MultiPoint2d candidate_points;
+    const auto & pos = object.kinematics.pose_with_covariance.pose.position;
+    const auto footprint = setFootprint(object);
+    for (const auto & p : footprint.points) {
+      candidate_points.emplace_back(p.x + pos.x, p.y + pos.y);
+    }
+    LinearRing2d convex_hull;
+    boost::geometry::convex_hull(candidate_points, convex_hull);
+    std::vector<BoxAndLanelet> candidates;
+    bg::model::box<bg::model::d2::point_xy<double>> bbox2d_convex_hull;
+    bg::envelope(convex_hull, bbox2d_convex_hull);
+    local_rtree.query(bgi::disjoint(bbox2d_convex_hull), std::back_inserter(candidates));
+    st_2.~ScopedTimeTrack();
+
+    autoware::universe_utils::ScopedTimeTrack st_3("no bbox filter: main loop", *time_keeper_);
     // if object do not have bounding box, check each footprint is inside polygon
     for (const auto & point : object.shape.footprint.points) {
       const geometry_msgs::msg::Point32 point_transformed =
@@ -285,14 +361,43 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       geometry_msgs::msg::Pose point2d;
       point2d.position.x = point_transformed.x;
       point2d.position.y = point_transformed.y;
-      for (const auto & lanelet : intersected_lanelets) {
-        if (lanelet::utils::isInLanelet(point2d, lanelet, 0.0)) {
+
+      //for (const auto & lanelet : intersected_lanelets) {
+      //  if (lanelet::utils::isInLanelet(point2d, lanelet, 0.0)) {
+      //    return true;
+      //  }
+      //}
+      for (const auto & candidate : candidates) {
+        if (lanelet::utils::isInLanelet(point2d, candidate.second, 0.0)) {
           return true;
         }
       }
     }
     return false;
   }
+}
+
+bool ObjectLaneletFilterNode::isPolygonOverlapLaneletsRtree(
+  const Polygon2d & polygon,
+  const bgi::rtree<BoxAndLanelet, bgi::rstar<16>> & local_rtree)
+{
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
+  std::vector<BoxAndLanelet> candidates;
+  bg::model::box<bg::model::d2::point_xy<double>> bbox2d_convex_hull;
+  bg::envelope(polygon, bbox2d_convex_hull);
+  local_rtree.query(bgi::disjoint(bbox2d_convex_hull), std::back_inserter(candidates));
+
+  //if (results.size == 0) {
+  //  return false;
+  //}
+
+  for (const auto & lanelet : candidates) {
+    if (!boost::geometry::disjoint(polygon, lanelet.second.polygon2d().basicPolygon())) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool ObjectLaneletFilterNode::isPolygonOverlapLanelets(
@@ -307,11 +412,13 @@ bool ObjectLaneletFilterNode::isPolygonOverlapLanelets(
   return false;
 }
 
+/*
 bool ObjectLaneletFilterNode::isSameDirectionWithLanelets(
-  const lanelet::ConstLanelets & lanelets,
+  //const lanelet::ConstLanelets & lanelets,
   const autoware_perception_msgs::msg::DetectedObject & object)
+  //const bgi::rtree<BoxAndLanelet, bgi::rstar<16>> & local_rtree
 {
-  //autoware::universe_utils::ScopedTimeTrack st("isSameDirectionWithLanelets", *time_keeper_);
+  autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   const double object_yaw = tf2::getYaw(object.kinematics.pose_with_covariance.pose.orientation);
   const double object_velocity_norm = std::hypot(
     object.kinematics.twist_with_covariance.twist.linear.x,
@@ -343,6 +450,7 @@ bool ObjectLaneletFilterNode::isSameDirectionWithLanelets(
 
   return false;
 }
+*/
 
 }  // namespace lanelet_filter
 }  // namespace autoware::detected_object_validation
