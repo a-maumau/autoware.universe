@@ -75,7 +75,7 @@ ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & nod
     std::make_unique<autoware::universe_utils::PublishedTimePublisher>(this);
 
   publisher_ =
-      this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>("processing_time", rclcpp::QoS{1});
+      this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>("~/debug/lanelet_filter_processing_time_detail_ms", rclcpp::QoS{1});
   time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(publisher_, &std::cerr);
   //timer_ =
   //    create_wall_timer(std::chrono::seconds(1), std::bind(&ObjectLaneletFilterNode::objectCallback, this));
@@ -264,6 +264,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
   autoware::universe_utils::ScopedTimeTrack st(__func__, *time_keeper_);
   // if has bounding box, use polygon overlap
   if (utils::hasBoundingBox(object)) {
+    autoware::universe_utils::ScopedTimeTrack st_1("bbox_filter", *time_keeper_);
     Polygon2d polygon;
     const auto footprint = setFootprint(object);
     for (const auto & point : footprint.points) {
@@ -275,6 +276,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     polygon.outer().push_back(polygon.outer().front());
     return isPolygonOverlapLanelets(polygon, intersected_lanelets);
   } else {
+    autoware::universe_utils::ScopedTimeTrack st_2("non_bbox_filter", *time_keeper_);
     // if object do not have bounding box, check each footprint is inside polygon
     for (const auto & point : object.shape.footprint.points) {
       const geometry_msgs::msg::Point32 point_transformed =
