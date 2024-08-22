@@ -456,6 +456,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://autowarefoundation.github.io/autoware.universe/main/localization/autoware_gyro_odometer/</loc>
+         <lastmod>2024-08-22</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://autowarefoundation.github.io/autoware.universe/main/localization/autoware_landmark_based_localizer/</loc>
          <lastmod>2024-08-22</lastmod>
          <changefreq>daily</changefreq>
@@ -492,11 +497,6 @@
     </url>
     <url>
          <loc>https://autowarefoundation.github.io/autoware.universe/main/localization/ekf_localizer/</loc>
-         <lastmod>2024-08-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://autowarefoundation.github.io/autoware.universe/main/localization/gyro_odometer/</loc>
          <lastmod>2024-08-22</lastmod>
          <changefreq>daily</changefreq>
     </url>
@@ -561,6 +561,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://autowarefoundation.github.io/autoware.universe/main/map/autoware_map_tf_generator/</loc>
+         <lastmod>2024-08-22</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://autowarefoundation.github.io/autoware.universe/main/map/map_height_fitter/</loc>
          <lastmod>2024-08-22</lastmod>
          <changefreq>daily</changefreq>
@@ -572,11 +577,6 @@
     </url>
     <url>
          <loc>https://autowarefoundation.github.io/autoware.universe/main/map/map_projection_loader/</loc>
-         <lastmod>2024-08-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://autowarefoundation.github.io/autoware.universe/main/map/map_tf_generator/</loc>
          <lastmod>2024-08-22</lastmod>
          <changefreq>daily</changefreq>
     </url>
