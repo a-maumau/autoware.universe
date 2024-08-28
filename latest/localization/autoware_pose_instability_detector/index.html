@@ -8,20 +8,20 @@
       
       
       
-        <link rel="canonical" href="https://autowarefoundation.github.io/autoware.universe/latest/sensing/imu_corrector/">
+        <link rel="canonical" href="https://autowarefoundation.github.io/autoware.universe/latest/localization/autoware_pose_instability_detector/">
       
       
-        <link rel="prev" href="../gnss_poser/">
+        <link rel="prev" href="../autoware_pose_estimator_arbiter/example_rule/">
       
       
-        <link rel="next" href="../livox/autoware_livox_tag_filter/">
+        <link rel="next" href="../autoware_stop_filter/">
       
       <link rel="icon" href="../../docs/assets/images/autoware-foundation.png">
       <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.20">
     
     
       
-        <title>imu_corrector - Autoware Universe Documentation</title>
+        <title>autoware_pose_instability_detector - Autoware Universe Documentation</title>
       
     
     
@@ -77,7 +77,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#imu_corrector" class="md-skip">
+        <a href="#autoware_pose_instability_detector" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              imu_corrector
+              autoware_pose_instability_detector
             
           </span>
         </div>
@@ -293,6 +293,8 @@
         
   
   
+    
+  
 
 
   
@@ -304,7 +306,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../localization/autoware_geo_pose_projector/" class="md-tabs__link">
+      <a href="../autoware_geo_pose_projector/" class="md-tabs__link md-tabs__link--active">
         Localization
       </a>
     </li>
@@ -327,7 +329,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../map/autoware_map_tf_generator/" class="md-tabs__link">
+      <a href="../../map/autoware_map_height_fitter/" class="md-tabs__link">
         Map
       </a>
     </li>
@@ -378,8 +380,6 @@
         
   
   
-    
-  
 
 
   
@@ -391,7 +391,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../autoware_image_diagnostics/" class="md-tabs__link md-tabs__link--active">
+      <a href="../../sensing/autoware_image_diagnostics/" class="md-tabs__link">
         Sensing
       </a>
     </li>
@@ -3598,16 +3598,16 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
       
       
-        
-      
-      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
       
       
         
@@ -3648,7 +3648,7 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_5">
           <span class="md-nav__icon md-icon"></span>
           Localization
@@ -3683,7 +3683,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_geo_pose_projector/">Autoware geo pose projector</a>
+          <a href="../autoware_geo_pose_projector/">Autoware geo pose projector</a>
           
         </div>
       
@@ -3731,7 +3731,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_gyro_odometer/">Autoware gyro odometer</a>
+          <a href="../autoware_gyro_odometer/">Autoware gyro odometer</a>
           
         </div>
       
@@ -3776,12 +3776,14 @@
         
           
         
+          
+        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_landmark_based_localizer/">Autoware landmark based localizer</a>
+          <a href="../autoware_landmark_based_localizer/">Autoware landmark based localizer</a>
           
             <label for="__nav_5_3">
               <span class="md-nav__icon md-icon"></span>
@@ -3824,7 +3826,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/">Autoware ar tag based localizer</a>
+          <a href="../autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/">Autoware ar tag based localizer</a>
           
         </div>
       
@@ -3832,6 +3834,52 @@
         <label class="md-nav__title" for="__nav_5_3_2">
           <span class="md-nav__icon md-icon"></span>
           Autoware ar tag based localizer
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3_3" >
+      
+      
+        
+          
+            
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../autoware_landmark_based_localizer/autoware_lidar_marker_localizer/">Autoware lidar marker localizer</a>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          Autoware lidar marker localizer
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -3879,7 +3927,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_localization_error_monitor/">Autoware localization error monitor</a>
+          <a href="../autoware_localization_error_monitor/">Autoware localization error monitor</a>
           
         </div>
       
@@ -3927,7 +3975,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_pose2twist/">Autoware pose2twist</a>
+          <a href="../autoware_pose2twist/">Autoware pose2twist</a>
           
         </div>
       
@@ -3975,7 +4023,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_pose_covariance_modifier/">Autoware pose covariance modifier</a>
+          <a href="../autoware_pose_covariance_modifier/">Autoware pose covariance modifier</a>
           
         </div>
       
@@ -4018,22 +4066,74 @@
             
           
         
+          
+        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_stop_filter/">Autoware stop filter</a>
+          <a href="../autoware_pose_estimator_arbiter/">Autoware pose estimator arbiter</a>
+          
+            <label for="__nav_5_7">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_7">
           <span class="md-nav__icon md-icon"></span>
-          Autoware stop filter
+          Autoware pose estimator arbiter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7_2" >
+      
+      
+        
+          
+            
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../autoware_pose_estimator_arbiter/example_rule/">Example rule</a>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_7_2">
+          <span class="md-nav__icon md-icon"></span>
+          Example rule
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
             
           
         </ul>
@@ -4047,18 +4147,18 @@
               
   
   
+    
+  
   
     
       
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
       
       
       
-        
-      
-      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_8" >
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" checked>
       
       
         
@@ -4070,15 +4170,15 @@
       
         
         
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/autoware_twist2accel/">Autoware twist2accel</a>
+        <div class="md-nav__link md-nav__link--index md-nav__link--active">
+          <a href="./">Autoware pose instability detector</a>
           
         </div>
       
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="true">
         <label class="md-nav__title" for="__nav_5_8">
           <span class="md-nav__icon md-icon"></span>
-          Autoware twist2accel
+          Autoware pose instability detector
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4119,14 +4219,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/ekf_localizer/">Ekf localizer</a>
+          <a href="../autoware_stop_filter/">Autoware stop filter</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_9_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_9">
           <span class="md-nav__icon md-icon"></span>
-          Ekf localizer
+          Autoware stop filter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4167,14 +4267,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/localization_util/">Localization util</a>
+          <a href="../autoware_twist2accel/">Autoware twist2accel</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_10">
           <span class="md-nav__icon md-icon"></span>
-          Localization util
+          Autoware twist2accel
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4215,14 +4315,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/ndt_scan_matcher/">Ndt scan matcher</a>
+          <a href="../ekf_localizer/">Ekf localizer</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_11_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_11">
           <span class="md-nav__icon md-icon"></span>
-          Ndt scan matcher
+          Ekf localizer
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4258,74 +4358,22 @@
             
           
         
-          
-        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/pose_estimator_arbiter/">Pose estimator arbiter</a>
-          
-            <label for="__nav_5_12">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
+          <a href="../localization_util/">Localization util</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_12_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_12">
           <span class="md-nav__icon md-icon"></span>
-          Pose estimator arbiter
+          Localization util
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
-            
-          
-            
-              
-  
-  
-  
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-        
-      
-      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_12_2" >
-      
-      
-        
-          
-            
-          
-        
-      
-      
-        
-        
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/pose_estimator_arbiter/example_rule/">Example rule</a>
-          
-        </div>
-      
-      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_12_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_5_12_2">
-          <span class="md-nav__icon md-icon"></span>
-          Example rule
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-          
-        </ul>
-      </nav>
-    </li>
-  
-
             
           
         </ul>
@@ -4363,14 +4411,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/pose_initializer/">Pose initializer</a>
+          <a href="../ndt_scan_matcher/">Ndt scan matcher</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_13_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_13">
           <span class="md-nav__icon md-icon"></span>
-          Pose initializer
+          Ndt scan matcher
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4411,14 +4459,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/pose_instability_detector/">Pose instability detector</a>
+          <a href="../pose_initializer/">Pose initializer</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_14_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_5_14">
           <span class="md-nav__icon md-icon"></span>
-          Pose instability detector
+          Pose initializer
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4469,7 +4517,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/">Yabloc</a>
+          <a href="../yabloc/">Yabloc</a>
           
             <label for="__nav_5_15">
               <span class="md-nav__icon md-icon"></span>
@@ -4512,7 +4560,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/yabloc_common/">Yabloc common</a>
+          <a href="../yabloc/yabloc_common/">Yabloc common</a>
           
         </div>
       
@@ -4558,7 +4606,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/yabloc_image_processing/">Yabloc image processing</a>
+          <a href="../yabloc/yabloc_image_processing/">Yabloc image processing</a>
           
         </div>
       
@@ -4604,7 +4652,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/yabloc_monitor/">Yabloc monitor</a>
+          <a href="../yabloc/yabloc_monitor/">Yabloc monitor</a>
           
         </div>
       
@@ -4650,7 +4698,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/yabloc_particle_filter/">Yabloc particle filter</a>
+          <a href="../yabloc/yabloc_particle_filter/">Yabloc particle filter</a>
           
         </div>
       
@@ -4696,7 +4744,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../localization/yabloc/yabloc_pose_initializer/">Yabloc pose initializer</a>
+          <a href="../yabloc/yabloc_pose_initializer/">Yabloc pose initializer</a>
           
         </div>
       
@@ -4798,14 +4846,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../map/autoware_map_tf_generator/">Autoware map tf generator</a>
+          <a href="../../map/autoware_map_height_fitter/">Autoware map height fitter</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_1_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_6_1">
           <span class="md-nav__icon md-icon"></span>
-          Autoware map tf generator
+          Autoware map height fitter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -4846,14 +4894,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../map/map_height_fitter/">Map height fitter</a>
+          <a href="../../map/autoware_map_tf_generator/">Autoware map tf generator</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_6_2">
           <span class="md-nav__icon md-icon"></span>
-          Map height fitter
+          Autoware map tf generator
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -9290,16 +9338,16 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
       
       
         
@@ -9334,7 +9382,7 @@
           <span class="md-nav__icon md-icon"></span>
         </label>
       
-      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9">
           <span class="md-nav__icon md-icon"></span>
           Sensing
@@ -9369,7 +9417,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_image_diagnostics/">Autoware image diagnostics</a>
+          <a href="../../sensing/autoware_image_diagnostics/">Autoware image diagnostics</a>
           
         </div>
       
@@ -9417,7 +9465,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_image_transport_decompressor/">Autoware image transport decompressor</a>
+          <a href="../../sensing/autoware_image_transport_decompressor/">Autoware image transport decompressor</a>
           
         </div>
       
@@ -9465,14 +9513,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_pcl_extensions/">Autoware pcl extensions</a>
+          <a href="../../sensing/autoware_imu_corrector/">Autoware imu corrector</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_3">
           <span class="md-nav__icon md-icon"></span>
-          Autoware pcl extensions
+          Autoware imu corrector
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -9508,290 +9556,22 @@
             
           
         
-          
-        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_pointcloud_preprocessor/">Autoware pointcloud preprocessor</a>
-          
-            <label for="__nav_9_4">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
+          <a href="../../sensing/autoware_pcl_extensions/">Autoware pcl extensions</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_4_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_4">
           <span class="md-nav__icon md-icon"></span>
-          Autoware pointcloud preprocessor
+          Autoware pcl extensions
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
-            
-          
-            
-              
-  
-  
-  
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-        
-      
-      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_4_2" >
-      
-      
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_9_4_2" id="__nav_9_4_2_label" tabindex="0">
-          Docs
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_9_4_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_9_4_2">
-          <span class="md-nav__icon md-icon"></span>
-          Docs
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/blockage_diag/" class="md-nav__link">
-        blockage_diag
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/concatenate-data/" class="md-nav__link">
-        concatenate_data
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/crop-box-filter/" class="md-nav__link">
-        crop_box_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/distortion-corrector/" class="md-nav__link">
-        distortion_corrector
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/downsample-filter/" class="md-nav__link">
-        downsample_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/dual-return-outlier-filter/" class="md-nav__link">
-        dual_return_outlier_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/outlier-filter/" class="md-nav__link">
-        outlier_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/passthrough-filter/" class="md-nav__link">
-        passthrough_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/pointcloud-accumulator/" class="md-nav__link">
-        pointcloud_accumulator
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/radius-search-2d-outlier-filter/" class="md-nav__link">
-        radius_search_2d_outlier_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/ring-outlier-filter/" class="md-nav__link">
-        ring_outlier_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/vector-map-filter/" class="md-nav__link">
-        vector_map_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/vector-map-inside-area-filter/" class="md-nav__link">
-        vector_map_inside_area_filter
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../autoware_pointcloud_preprocessor/docs/voxel-grid-outlier-filter/" class="md-nav__link">
-        voxel_grid_outlier_filter
-      </a>
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
-    </li>
-  
-
             
           
         </ul>
@@ -9824,22 +9604,290 @@
             
           
         
+          
+        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_radar_scan_to_pointcloud2/">Autoware radar scan to pointcloud2</a>
+          <a href="../../sensing/autoware_pointcloud_preprocessor/">Autoware pointcloud preprocessor</a>
+          
+            <label for="__nav_9_5">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_5_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_5">
           <span class="md-nav__icon md-icon"></span>
-          Autoware radar scan to pointcloud2
+          Autoware pointcloud preprocessor
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_5_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_9_5_2" id="__nav_9_5_2_label" tabindex="0">
+          Docs
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_9_5_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_9_5_2">
+          <span class="md-nav__icon md-icon"></span>
+          Docs
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/blockage_diag/" class="md-nav__link">
+        blockage_diag
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/concatenate-data/" class="md-nav__link">
+        concatenate_data
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/crop-box-filter/" class="md-nav__link">
+        crop_box_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/distortion-corrector/" class="md-nav__link">
+        distortion_corrector
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/downsample-filter/" class="md-nav__link">
+        downsample_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/dual-return-outlier-filter/" class="md-nav__link">
+        dual_return_outlier_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/outlier-filter/" class="md-nav__link">
+        outlier_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/passthrough-filter/" class="md-nav__link">
+        passthrough_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/pointcloud-accumulator/" class="md-nav__link">
+        pointcloud_accumulator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/radius-search-2d-outlier-filter/" class="md-nav__link">
+        radius_search_2d_outlier_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/ring-outlier-filter/" class="md-nav__link">
+        ring_outlier_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/vector-map-filter/" class="md-nav__link">
+        vector_map_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/vector-map-inside-area-filter/" class="md-nav__link">
+        vector_map_inside_area_filter
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sensing/autoware_pointcloud_preprocessor/docs/voxel-grid-outlier-filter/" class="md-nav__link">
+        voxel_grid_outlier_filter
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
             
           
         </ul>
@@ -9877,14 +9925,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_radar_static_pointcloud_filter/">Autoware radar static pointcloud filter</a>
+          <a href="../../sensing/autoware_radar_scan_to_pointcloud2/">Autoware radar scan to pointcloud2</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_6_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_6">
           <span class="md-nav__icon md-icon"></span>
-          Autoware radar static pointcloud filter
+          Autoware radar scan to pointcloud2
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -9925,14 +9973,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_radar_threshold_filter/">Autoware radar threshold filter</a>
+          <a href="../../sensing/autoware_radar_static_pointcloud_filter/">Autoware radar static pointcloud filter</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_7_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_7">
           <span class="md-nav__icon md-icon"></span>
-          Autoware radar threshold filter
+          Autoware radar static pointcloud filter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -9973,14 +10021,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../autoware_radar_tracks_noise_filter/">Autoware radar tracks noise filter</a>
+          <a href="../../sensing/autoware_radar_threshold_filter/">Autoware radar threshold filter</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_8_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_8">
           <span class="md-nav__icon md-icon"></span>
-          Autoware radar tracks noise filter
+          Autoware radar threshold filter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -10021,14 +10069,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../gnss_poser/">Gnss poser</a>
+          <a href="../../sensing/autoware_radar_tracks_noise_filter/">Autoware radar tracks noise filter</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_9_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_9">
           <span class="md-nav__icon md-icon"></span>
-          Gnss poser
+          Autoware radar tracks noise filter
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -10045,18 +10093,18 @@
               
   
   
-    
-  
   
     
       
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
       
       
       
-      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_10" checked>
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9_10" >
       
       
         
@@ -10068,15 +10116,15 @@
       
         
         
-        <div class="md-nav__link md-nav__link--index md-nav__link--active">
-          <a href="./">Imu corrector</a>
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../sensing/gnss_poser/">Gnss poser</a>
           
         </div>
       
-      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_10_label" aria-expanded="true">
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_10_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_9_10">
           <span class="md-nav__icon md-icon"></span>
-          Imu corrector
+          Gnss poser
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -10150,7 +10198,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../livox/autoware_livox_tag_filter/">Autoware livox tag filter</a>
+          <a href="../../sensing/livox/autoware_livox_tag_filter/">Autoware livox tag filter</a>
           
         </div>
       
@@ -10205,7 +10253,7 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../vehicle_velocity_converter/">Vehicle velocity converter</a>
+          <a href="../../sensing/vehicle_velocity_converter/">Vehicle velocity converter</a>
           
         </div>
       
@@ -10714,22 +10762,178 @@
             
           
         
+          
+        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../system/autoware_processing_time_checker/">Autoware processing time checker</a>
+          <a href="../../system/autoware_default_adapi/">Autoware default adapi</a>
+          
+            <label for="__nav_11_2">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_2_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_11_2">
           <span class="md-nav__icon md-icon"></span>
-          Autoware processing time checker
+          Autoware default adapi
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11_2_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_11_2_2" id="__nav_11_2_2_label" tabindex="0">
+          Document
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_11_2_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_11_2_2">
+          <span class="md-nav__icon md-icon"></span>
+          Document
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/autoware-state/" class="md-nav__link">
+        Autoware state compatibility
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/fail-safe/" class="md-nav__link">
+        Fail-safe API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/interface/" class="md-nav__link">
+        Interface API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/localization/" class="md-nav__link">
+        Localization API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/motion/" class="md-nav__link">
+        Motion API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/operation-mode/" class="md-nav__link">
+        Operation mode API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../system/autoware_default_adapi/document/routing/" class="md-nav__link">
+        Routing API
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
             
           
         </ul>
@@ -10767,14 +10971,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../system/bluetooth_monitor/">Bluetooth monitor</a>
+          <a href="../../system/autoware_processing_time_checker/">Autoware processing time checker</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_3_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_11_3">
           <span class="md-nav__icon md-icon"></span>
-          Bluetooth monitor
+          Autoware processing time checker
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -10815,14 +11019,14 @@
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../system/component_state_monitor/">Component state monitor</a>
+          <a href="../../system/bluetooth_monitor/">Bluetooth monitor</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_4_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_11_4">
           <span class="md-nav__icon md-icon"></span>
-          Component state monitor
+          Bluetooth monitor
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -10858,178 +11062,22 @@
             
           
         
-          
-        
       
       
         
         
         <div class="md-nav__link md-nav__link--index ">
-          <a href="../../system/default_ad_api/">Default ad api</a>
-          
-            <label for="__nav_11_5">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
+          <a href="../../system/component_state_monitor/">Component state monitor</a>
           
         </div>
       
       <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_11_5_label" aria-expanded="false">
         <label class="md-nav__title" for="__nav_11_5">
           <span class="md-nav__icon md-icon"></span>
-          Default ad api
+          Component state monitor
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
-            
-          
-            
-              
-  
-  
-  
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-      
-      
-      
-        
-      
-      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11_5_2" >
-      
-      
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-          
-        
-      
-      
-        <label class="md-nav__link" for="__nav_11_5_2" id="__nav_11_5_2_label" tabindex="0">
-          Document
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_11_5_2_label" aria-expanded="false">
-        <label class="md-nav__title" for="__nav_11_5_2">
-          <span class="md-nav__icon md-icon"></span>
-          Document
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/autoware-state/" class="md-nav__link">
-        Autoware state compatibility
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/fail-safe/" class="md-nav__link">
-        Fail-safe API
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/interface/" class="md-nav__link">
-        Interface API
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/localization/" class="md-nav__link">
-        Localization API
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/motion/" class="md-nav__link">
-        Motion API
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/operation-mode/" class="md-nav__link">
-        Operation mode API
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../system/default_ad_api/document/routing/" class="md-nav__link">
-        Routing API
-      </a>
-    </li>
-  
-
-            
-          
-        </ul>
-      </nav>
-    </li>
-  
-
             
           
         </ul>
@@ -13054,30 +13102,23 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#imu_corrector_1" class="md-nav__link">
-    imu_corrector
+  <a href="#dead-reckoning-algorithm" class="md-nav__link">
+    Dead reckoning algorithm
   </a>
   
-    <nav class="md-nav" aria-label="imu_corrector">
+    <nav class="md-nav" aria-label="Dead reckoning algorithm">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#input" class="md-nav__link">
-    Input
+  <a href="#collecting-twist-values" class="md-nav__link">
+    Collecting twist values
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#output" class="md-nav__link">
-    Output
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#parameters" class="md-nav__link">
-    Parameters
+  <a href="#linear-transition-and-angular-transition" class="md-nav__link">
+    Linear transition and angular transition
   </a>
   
 </li>
@@ -13088,36 +13129,64 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gyro_bias_estimator" class="md-nav__link">
-    gyro_bias_estimator
+  <a href="#threshold-definition" class="md-nav__link">
+    Threshold definition
   </a>
   
-    <nav class="md-nav" aria-label="gyro_bias_estimator">
+    <nav class="md-nav" aria-label="Threshold definition">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#input_1" class="md-nav__link">
-    Input
+  <a href="#diff_position_x" class="md-nav__link">
+    diff_position_x
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#output_1" class="md-nav__link">
-    Output
+  <a href="#diff_position_y-and-diff_position_z" class="md-nav__link">
+    diff_position_y and diff_position_z
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#parameters_1" class="md-nav__link">
-    Parameters
+  <a href="#diff_angle_x-diff_angle_y-and-diff_angle_z" class="md-nav__link">
+    diff_angle_x, diff_angle_y, and diff_angle_z
   </a>
   
 </li>
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameters" class="md-nav__link">
+    Parameters
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#input" class="md-nav__link">
+    Input
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    Output
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix" class="md-nav__link">
+    Appendix
+  </a>
   
 </li>
       
@@ -13139,132 +13208,260 @@
   
 
 
-<div><h1 id="imu_corrector">imu_corrector<a class="headerlink" href="#imu_corrector" title="Permanent link">#</a></h1>
-<h2 id="imu_corrector_1">imu_corrector<a class="headerlink" href="#imu_corrector_1" title="Permanent link">#</a></h2>
-<p><code>imu_corrector_node</code> is a node that correct imu data.</p>
+<div><h1 id="autoware_pose_instability_detector">autoware_pose_instability_detector<a class="headerlink" href="#autoware_pose_instability_detector" title="Permanent link">#</a></h1>
+<p>The <code>pose_instability_detector</code> is a node designed to monitor the stability of <code>/localization/kinematic_state</code>, which is an output topic of the Extended Kalman Filter (EKF).</p>
+<p>This node triggers periodic timer callbacks to compare two poses:</p>
+<ul>
+<li>The pose calculated by dead reckoning starting from the pose of <code>/localization/kinematic_state</code> obtained <code>timer_period</code> seconds ago.</li>
+<li>The latest pose from <code>/localization/kinematic_state</code>.</li>
+</ul>
+<p>The results of this comparison are then output to the <code>/diagnostics</code> topic.</p>
+<p><img alt="overview" src="media/pose_instability_detector_overview.png"></p>
+<p><img alt="rqt_runtime_monitor" src="media/rqt_runtime_monitor.png"></p>
+<p>If this node outputs WARN messages to <code>/diagnostics</code>, it means that the EKF output is significantly different from the integrated twist values.
+In other words, WARN outputs indicate that the vehicle has moved to a place outside the expected range based on the twist values.
+This discrepancy suggests that there may be an issue with either the estimated pose or the input twist.</p>
+<p>The following diagram provides an overview of how the procedure looks like:</p>
+<p><img alt="procedure" src="media/pose_instabilty_detector_procedure.svg"></p>
+<h2 id="dead-reckoning-algorithm">Dead reckoning algorithm<a class="headerlink" href="#dead-reckoning-algorithm" title="Permanent link">#</a></h2>
+<p>Dead reckoning is a method of estimating the position of a vehicle based on its previous position and velocity.
+The procedure for dead reckoning is as follows:</p>
 <ol>
-<li>Correct yaw rate offset <span class="arithmatex">\(b\)</span> by reading the parameter.</li>
-<li>Correct yaw rate standard deviation <span class="arithmatex">\(\sigma\)</span> by reading the parameter.</li>
+<li>Capture the necessary twist values from the <code>/input/twist</code> topic.</li>
+<li>Integrate the twist values to calculate the pose transition.</li>
+<li>Apply the pose transition to the previous pose to obtain the current pose.</li>
 </ol>
-<p>Mathematically, we assume the following equation:</p>
+<h3 id="collecting-twist-values">Collecting twist values<a class="headerlink" href="#collecting-twist-values" title="Permanent link">#</a></h3>
+<p>The <code>pose_instability_detector</code> node collects the twist values from the <code>~/input/twist</code> topic to perform dead reckoning.
+Ideally, <code>pose_instability_detector</code> needs the twist values between the previous pose and the current pose.
+Therefore, <code>pose_instability_detector</code> snips the twist buffer and apply interpolations and extrapolations to obtain the twist values at the desired time.</p>
+<p><img alt="how_to_snip_necessary_twist" src="media/how_to_snip_twist.png"></p>
+<h3 id="linear-transition-and-angular-transition">Linear transition and angular transition<a class="headerlink" href="#linear-transition-and-angular-transition" title="Permanent link">#</a></h3>
+<p>After the twist values are collected, the node calculates the linear transition and angular transition based on the twist values and add them to the previous pose.</p>
+<h2 id="threshold-definition">Threshold definition<a class="headerlink" href="#threshold-definition" title="Permanent link">#</a></h2>
+<p>The <code>pose_instability_detector</code> node compares the pose calculated by dead reckoning with the latest pose from the EKF output.
+These two pose are ideally the same, but in reality, they are not due to the error in the twist values the pose observation.
+If these two poses are significantly different so that the absolute value exceeds the threshold, the node outputs a WARN message to the <code>/diagnostics</code> topic.
+There are six thresholds (x, y, z, roll, pitch, and yaw) to determine whether the poses are significantly different, and these thresholds are determined by the following subsections.</p>
+<h3 id="diff_position_x"><code>diff_position_x</code><a class="headerlink" href="#diff_position_x" title="Permanent link">#</a></h3>
+<p>This threshold examines the difference in the longitudinal axis between the two poses, and check whether the vehicle goes beyond the expected error.
+This threshold is a sum of "maximum longitudinal error due to velocity scale factor error" and "pose estimation error tolerance".</p>
 <div class="arithmatex">\[
-\tilde{\omega}(t) = \omega(t) + b(t) + n(t)
+\tau_x = v_{\rm max}\frac{\beta_v}{100} \Delta t + \epsilon_x\\
 \]</div>
-<p>where <span class="arithmatex">\(\tilde{\omega}\)</span> denotes observed angular velocity, <span class="arithmatex">\(\omega\)</span> denotes true angular velocity, <span class="arithmatex">\(b\)</span> denotes an offset, and <span class="arithmatex">\(n\)</span> denotes a gaussian noise.
-We also assume that <span class="arithmatex">\(n\sim\mathcal{N}(0, \sigma^2)\)</span>.</p>
-<!-- TODO(TIER IV): Make this repository public or change the link. -->
-<!-- Use the value estimated by [deviation_estimator](https://github.com/tier4/calibration_tools/tree/main/localization/deviation_estimation_tools) as the parameters for this node. -->
-
-<h3 id="input">Input<a class="headerlink" href="#input" title="Permanent link">#</a></h3>
 <table>
 <thead>
 <tr>
-<th>Name</th>
-<th>Type</th>
+<th>Symbol</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>~input</code></td>
-<td><code>sensor_msgs::msg::Imu</code></td>
-<td>raw imu data</td>
+<td><span class="arithmatex">\(\tau_x\)</span></td>
+<td>Threshold for the difference in the longitudinal axis</td>
+<td><span class="arithmatex">\(m\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(v_{\rm max}\)</span></td>
+<td>Maximum velocity</td>
+<td><span class="arithmatex">\(m/s\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\beta_v\)</span></td>
+<td>Scale factor tolerance for the maximum velocity</td>
+<td><span class="arithmatex">\(\%\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\Delta t\)</span></td>
+<td>Time interval</td>
+<td><span class="arithmatex">\(s\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\epsilon_x\)</span></td>
+<td>Pose estimator (e. g. ndt_scan_matcher) error tolerance in the longitudinal axis</td>
+<td><span class="arithmatex">\(m\)</span></td>
 </tr>
 </tbody>
 </table>
-<h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">#</a></h3>
+<h3 id="diff_position_y-and-diff_position_z"><code>diff_position_y</code> and <code>diff_position_z</code><a class="headerlink" href="#diff_position_y-and-diff_position_z" title="Permanent link">#</a></h3>
+<p>These thresholds examine the difference in the lateral and vertical axes between the two poses, and check whether the vehicle goes beyond the expected error.
+The <code>pose_instability_detector</code> calculates the possible range where the vehicle goes, and get the maximum difference between the nominal dead reckoning pose and the maximum limit pose.</p>
+<p><img alt="lateral_threshold_calculation" src="media/lateral_threshold_calculation.png"></p>
+<p>Addition to this, the <code>pose_instability_detector</code> node considers the pose estimation error tolerance to determine the threshold.</p>
+<div class="arithmatex">\[
+\tau_y = l + \epsilon_y
+\]</div>
 <table>
 <thead>
 <tr>
-<th>Name</th>
-<th>Type</th>
+<th>Symbol</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>~output</code></td>
-<td><code>sensor_msgs::msg::Imu</code></td>
-<td>corrected imu data</td>
+<td><span class="arithmatex">\(\tau_y\)</span></td>
+<td>Threshold for the difference in the lateral axis</td>
+<td><span class="arithmatex">\(m\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(l\)</span></td>
+<td>Maximum lateral distance described in the image above (See the appendix how this is calculated)</td>
+<td><span class="arithmatex">\(m\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\epsilon_y\)</span></td>
+<td>Pose estimator (e. g. ndt_scan_matcher) error tolerance in the lateral axis</td>
+<td><span class="arithmatex">\(m\)</span></td>
 </tr>
 </tbody>
 </table>
-<h3 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">#</a></h3>
+<p>Note that <code>pose_instability_detector</code> sets the threshold for the vertical axis as the same as the lateral axis. Only the pose estimator error tolerance is different.</p>
+<h3 id="diff_angle_x-diff_angle_y-and-diff_angle_z"><code>diff_angle_x</code>, <code>diff_angle_y</code>, and <code>diff_angle_z</code><a class="headerlink" href="#diff_angle_x-diff_angle_y-and-diff_angle_z" title="Permanent link">#</a></h3>
+<p>These thresholds examine the difference in the roll, pitch, and yaw angles between the two poses.
+This threshold is a sum of "maximum angular error due to velocity scale factor error and bias error" and "pose estimation error tolerance".</p>
+<div class="arithmatex">\[
+\tau_\phi = \tau_\theta = \tau_\psi = \left(\omega_{\rm max}\frac{\beta_\omega}{100} + b \right) \Delta t + \epsilon_\psi
+\]</div>
 <table>
 <thead>
 <tr>
-<th>Name</th>
-<th>Type</th>
+<th>Symbol</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>angular_velocity_offset_x</code></td>
-<td>double</td>
-<td>roll rate offset in imu_link [rad/s]</td>
+<td><span class="arithmatex">\(\tau_\phi\)</span></td>
+<td>Threshold for the difference in the roll angle</td>
+<td><span class="arithmatex">\({\rm rad}\)</span></td>
 </tr>
 <tr>
-<td><code>angular_velocity_offset_y</code></td>
-<td>double</td>
-<td>pitch rate offset imu_link [rad/s]</td>
+<td><span class="arithmatex">\(\tau_\theta\)</span></td>
+<td>Threshold for the difference in the pitch angle</td>
+<td><span class="arithmatex">\({\rm rad}\)</span></td>
 </tr>
 <tr>
-<td><code>angular_velocity_offset_z</code></td>
-<td>double</td>
-<td>yaw rate offset imu_link [rad/s]</td>
+<td><span class="arithmatex">\(\tau_\psi\)</span></td>
+<td>Threshold for the difference in the yaw angle</td>
+<td><span class="arithmatex">\({\rm rad}\)</span></td>
 </tr>
 <tr>
-<td><code>angular_velocity_stddev_xx</code></td>
-<td>double</td>
-<td>roll rate standard deviation imu_link [rad/s]</td>
+<td><span class="arithmatex">\(\omega_{\rm max}\)</span></td>
+<td>Maximum angular velocity</td>
+<td><span class="arithmatex">\({\rm rad}/s\)</span></td>
 </tr>
 <tr>
-<td><code>angular_velocity_stddev_yy</code></td>
-<td>double</td>
-<td>pitch rate standard deviation imu_link [rad/s]</td>
+<td><span class="arithmatex">\(\beta_\omega\)</span></td>
+<td>Scale factor tolerance for the maximum angular velocity</td>
+<td><span class="arithmatex">\(\%\)</span></td>
 </tr>
 <tr>
-<td><code>angular_velocity_stddev_zz</code></td>
-<td>double</td>
-<td>yaw rate standard deviation imu_link [rad/s]</td>
+<td><span class="arithmatex">\(b\)</span></td>
+<td>Bias tolerance of the angular velocity</td>
+<td><span class="arithmatex">\({\rm rad}/s\)</span></td>
 </tr>
 <tr>
-<td><code>acceleration_stddev</code></td>
-<td>double</td>
-<td>acceleration standard deviation imu_link [m/s^2]</td>
+<td><span class="arithmatex">\(\Delta t\)</span></td>
+<td>Time interval</td>
+<td><span class="arithmatex">\(s\)</span></td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\epsilon_\psi\)</span></td>
+<td>Pose estimator (e. g. ndt_scan_matcher) error tolerance in the yaw angle</td>
+<td><span class="arithmatex">\({\rm rad}\)</span></td>
 </tr>
 </tbody>
 </table>
-<h2 id="gyro_bias_estimator">gyro_bias_estimator<a class="headerlink" href="#gyro_bias_estimator" title="Permanent link">#</a></h2>
-<p><code>gyro_bias_validator</code> is a node that validates the bias of the gyroscope. It subscribes to the <code>sensor_msgs::msg::Imu</code> topic and validate if the bias of the gyroscope is within the specified range.</p>
-<p>Note that the node calculates bias from the gyroscope data by averaging the data only when the vehicle is stopped.</p>
-<h3 id="input_1">Input<a class="headerlink" href="#input_1" title="Permanent link">#</a></h3>
+<h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
 <th>Name</th>
 <th>Type</th>
 <th>Description</th>
+<th>Default</th>
+<th>Range</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>~/input/imu_raw</code></td>
-<td><code>sensor_msgs::msg::Imu</code></td>
-<td><strong>raw</strong> imu data</td>
+<td>timer_period</td>
+<td>float</td>
+<td>The period of timer_callback (sec).</td>
+<td>0.5</td>
+<td>&gt;0</td>
 </tr>
 <tr>
-<td><code>~/input/pose</code></td>
-<td><code>geometry_msgs::msg::PoseWithCovarianceStamped</code></td>
-<td>ndt pose</td>
+<td>heading_velocity_maximum</td>
+<td>float</td>
+<td>The maximum of heading velocity (m/s).</td>
+<td>16.667</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>heading_velocity_scale_factor_tolerance</td>
+<td>float</td>
+<td>The tolerance of heading velocity scale factor (%).</td>
+<td>3</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>angular_velocity_maximum</td>
+<td>float</td>
+<td>The maximum of angular velocity (rad/s).</td>
+<td>0.523</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>angular_velocity_scale_factor_tolerance</td>
+<td>float</td>
+<td>The tolerance of angular velocity scale factor (%).</td>
+<td>0.2</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>angular_velocity_bias_tolerance</td>
+<td>float</td>
+<td>The tolerance of angular velocity bias (rad/s).</td>
+<td>0.00698</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>pose_estimator_longitudinal_tolerance</td>
+<td>float</td>
+<td>The tolerance of longitudinal position of pose estimator (m).</td>
+<td>0.11</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>pose_estimator_lateral_tolerance</td>
+<td>float</td>
+<td>The tolerance of lateral position of pose estimator (m).</td>
+<td>0.11</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>pose_estimator_vertical_tolerance</td>
+<td>float</td>
+<td>The tolerance of vertical position of pose estimator (m).</td>
+<td>0.11</td>
+<td>≥0.0</td>
+</tr>
+<tr>
+<td>pose_estimator_angular_tolerance</td>
+<td>float</td>
+<td>The tolerance of roll angle of pose estimator (rad).</td>
+<td>0.0175</td>
+<td>≥0.0</td>
 </tr>
 </tbody>
 </table>
-<p>Note that the input pose is assumed to be accurate enough. For example when using NDT, we assume that the NDT is appropriately converged.</p>
-<p>Currently, it is possible to use methods other than NDT as a <code>pose_source</code> for Autoware, but less accurate methods are not suitable for IMU bias estimation.</p>
-<p>In the future, with careful implementation for pose errors, the IMU bias estimated by NDT could potentially be used not only for validation but also for online calibration.</p>
-<h3 id="output_1">Output<a class="headerlink" href="#output_1" title="Permanent link">#</a></h3>
+<h2 id="input">Input<a class="headerlink" href="#input" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -13275,14 +13472,18 @@ We also assume that <span class="arithmatex">\(n\sim\mathcal{N}(0, \sigma^2)\)</
 </thead>
 <tbody>
 <tr>
-<td><code>~/output/gyro_bias</code></td>
-<td><code>geometry_msgs::msg::Vector3Stamped</code></td>
-<td>bias of the gyroscope [rad/s]</td>
+<td><code>~/input/odometry</code></td>
+<td>nav_msgs::msg::Odometry</td>
+<td>Pose estimated by EKF</td>
+</tr>
+<tr>
+<td><code>~/input/twist</code></td>
+<td>geometry_msgs::msg::TwistWithCovarianceStamped</td>
+<td>Twist</td>
 </tr>
 </tbody>
 </table>
-<h3 id="parameters_1">Parameters<a class="headerlink" href="#parameters_1" title="Permanent link">#</a></h3>
-<p>Note that this node also uses <code>angular_velocity_offset_x</code>, <code>angular_velocity_offset_y</code>, <code>angular_velocity_offset_z</code> parameters from <code>imu_corrector.param.yaml</code>.</p>
+<h2 id="output">Output<a class="headerlink" href="#output" title="Permanent link">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -13293,27 +13494,82 @@ We also assume that <span class="arithmatex">\(n\sim\mathcal{N}(0, \sigma^2)\)</
 </thead>
 <tbody>
 <tr>
-<td><code>gyro_bias_threshold</code></td>
-<td>double</td>
-<td>threshold of the bias of the gyroscope [rad/s]</td>
+<td><code>~/debug/diff_pose</code></td>
+<td>geometry_msgs::msg::PoseStamped</td>
+<td>diff_pose</td>
 </tr>
 <tr>
-<td><code>timer_callback_interval_sec</code></td>
-<td>double</td>
-<td>seconds about the timer callback function [sec]</td>
-</tr>
-<tr>
-<td><code>diagnostics_updater_interval_sec</code></td>
-<td>double</td>
-<td>period of the diagnostics updater [sec]</td>
-</tr>
-<tr>
-<td><code>straight_motion_ang_vel_upper_limit</code></td>
-<td>double</td>
-<td>upper limit of yaw angular velocity, beyond which motion is not considered straight [rad/s]</td>
+<td><code>/diagnostics</code></td>
+<td>diagnostic_msgs::msg::DiagnosticArray</td>
+<td>Diagnostics</td>
 </tr>
 </tbody>
-</table></div>
+</table>
+<h2 id="appendix">Appendix<a class="headerlink" href="#appendix" title="Permanent link">#</a></h2>
+<p>On calculating the maximum lateral distance <span class="arithmatex">\(l\)</span>, the <code>pose_instability_detector</code> node will estimate the following poses.</p>
+<table>
+<thead>
+<tr>
+<th>Pose</th>
+<th>heading velocity <span class="arithmatex">\(v\)</span></th>
+<th>angular velocity <span class="arithmatex">\(\omega\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nominal dead reckoning pose</td>
+<td><span class="arithmatex">\(v_{\rm max}\)</span></td>
+<td><span class="arithmatex">\(\omega_{\rm max}\)</span></td>
+</tr>
+<tr>
+<td>Dead reckoning pose of corner A</td>
+<td><span class="arithmatex">\(\left(1+\frac{\beta_v}{100}\right) v_{\rm max}\)</span></td>
+<td><span class="arithmatex">\(\left(1+\frac{\beta_\omega}{100}\right) \omega_{\rm max} + b\)</span></td>
+</tr>
+<tr>
+<td>Dead reckoning pose of corner B</td>
+<td><span class="arithmatex">\(\left(1-\frac{\beta_v}{100}\right) v_{\rm max}\)</span></td>
+<td><span class="arithmatex">\(\left(1+\frac{\beta_\omega}{100}\right) \omega_{\rm max} + b\)</span></td>
+</tr>
+<tr>
+<td>Dead reckoning pose of corner C</td>
+<td><span class="arithmatex">\(\left(1-\frac{\beta_v}{100}\right) v_{\rm max}\)</span></td>
+<td><span class="arithmatex">\(\left(1-\frac{\beta_\omega}{100}\right) \omega_{\rm max} - b\)</span></td>
+</tr>
+<tr>
+<td>Dead reckoning pose of corner D</td>
+<td><span class="arithmatex">\(\left(1+\frac{\beta_v}{100}\right) v_{\rm max}\)</span></td>
+<td><span class="arithmatex">\(\left(1-\frac{\beta_\omega}{100}\right) \omega_{\rm max} - b\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>Given a heading velocity <span class="arithmatex">\(v\)</span> and <span class="arithmatex">\(\omega\)</span>, the 2D theoretical variation seen from the previous pose is calculated as follows:</p>
+<div class="arithmatex">\[
+\begin{align*}
+\left[
+    \begin{matrix}
+    \Delta x\\
+    \Delta y
+    \end{matrix}
+\right]
+&amp;=
+\left[
+    \begin{matrix}
+    \int_{0}^{\Delta t} v \cos(\omega t) dt\\
+    \int_{0}^{\Delta t} v \sin(\omega t) dt
+    \end{matrix}
+\right]
+\\
+&amp;=
+\left[
+    \begin{matrix}
+    \frac{v}{\omega} \sin(\omega \Delta t)\\
+    \frac{v}{\omega} \left(1 - \cos(\omega \Delta t)\right)
+    \end{matrix}
+\right]
+\end{align*}
+\]</div>
+<p>We calculate this variation for each corner and get the maximum value of the lateral distance <span class="arithmatex">\(l\)</span> by comparing the distance between the nominal dead reckoning pose and the corner poses.</p></div>
 
 
 
@@ -13340,7 +13596,7 @@ We also assume that <span class="arithmatex">\(n\sim\mathcal{N}(0, \sigma^2)\)</
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../gnss_poser/" class="md-footer__link md-footer__link--prev" aria-label="Previous: gnss_poser" rel="prev">
+          <a href="../autoware_pose_estimator_arbiter/example_rule/" class="md-footer__link md-footer__link--prev" aria-label="Previous: example rule" rel="prev">
             <div class="md-footer__button md-icon">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
             </div>
@@ -13349,20 +13605,20 @@ We also assume that <span class="arithmatex">\(n\sim\mathcal{N}(0, \sigma^2)\)</
                 Previous
               </span>
               <div class="md-ellipsis">
-                gnss_poser
+                example rule
               </div>
             </div>
           </a>
         
         
           
-          <a href="../livox/autoware_livox_tag_filter/" class="md-footer__link md-footer__link--next" aria-label="Next: livox_tag_filter" rel="next">
+          <a href="../autoware_stop_filter/" class="md-footer__link md-footer__link--next" aria-label="Next: stop_filter" rel="next">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                livox_tag_filter
+                stop_filter
               </div>
             </div>
             <div class="md-footer__button md-icon">
