@@ -401,6 +401,92 @@ bool correctWithReferenceYawAndShapeSize(
   pose.position.z = new_centroid.z();
   return true;
 }
+
+// use the reference object to correct the boudning box size
+bool correctWithReferenceShapeAndPose(
+  const ReferenceShapeSizeInfo & ref_shape_size_info, const geometry_msgs::msg::Pose & ref_pose,
+  autoware_perception_msgs::msg::Shape & shape, geometry_msgs::msg::Pose & pose)
+{
+  /*
+  c1 is farthest point from ref_pose and other points are arranged like below
+  c is center of bounding box
+         width
+         4---2
+         |   |
+  length | c | → ey
+         |   |
+         3---1
+           ↓
+           ex
+ */
+
+  Eigen::Vector3d c1;
+
+  Eigen::Affine3d base2obj_transform;
+  tf2::fromMsg(pose, base2obj_transform);
+
+  Eigen::Vector3d ref_center = Eigen::Vector3d(ref_pose.position.x, ref_pose.position.y, 0.0);
+  //
+  // std::cout << ref_pose.position.x << std::endl;
+  // Eigen::Vector3d ref_center = Eigen::Vector3d(0.0, 0.0, 0.0);
+  std::vector<Eigen::Vector3d> v_point;
+  v_point.push_back(
+    base2obj_transform * Eigen::Vector3d(shape.dimensions.x * 0.5, shape.dimensions.y * 0.5, 0.0) -
+    ref_center);
+  v_point.push_back(
+    base2obj_transform * Eigen::Vector3d(-shape.dimensions.x * 0.5, shape.dimensions.y * 0.5, 0.0) -
+    ref_center);
+  v_point.push_back(
+    base2obj_transform * Eigen::Vector3d(shape.dimensions.x * 0.5, -shape.dimensions.y * 0.5, 0.0) -
+    ref_center);
+  v_point.push_back(
+    base2obj_transform *
+      Eigen::Vector3d(-shape.dimensions.x * 0.5, -shape.dimensions.y * 0.5, 0.0) -
+    ref_center);
+
+  //
+  // c1 = *(std::min_element(v_point.begin(), v_point.end(), [](const auto & a, const auto & b) {
+  // Search the point that is farthest from ref_center to create a bounding box
+  // that will potentially maximize the IoU with the reference object
+  c1 = *(std::max_element(v_point.begin(), v_point.end(), [](const auto & a, const auto & b) {
+    return a.norm() < b.norm();
+  }));
+
+  Eigen::Vector3d local_c1 = base2obj_transform.inverse() * (c1 + ref_center);
+  Eigen::Vector3d ex = (Eigen::Vector3d(local_c1.x(), 0, 0)).normalized();
+  Eigen::Vector3d ey = (Eigen::Vector3d(0, local_c1.y(), 0)).normalized();
+
+  double length;
+  if (
+    ref_shape_size_info.mode == ReferenceShapeSizeInfo::Mode::Min &&
+    ref_shape_size_info.shape.dimensions.x < shape.dimensions.x) {
+    length = shape.dimensions.x;
+  } else {
+    length = ref_shape_size_info.shape.dimensions.x;
+  }
+
+  double width;
+  if (
+    ref_shape_size_info.mode == ReferenceShapeSizeInfo::Mode::Min &&
+    ref_shape_size_info.shape.dimensions.y < shape.dimensions.y) {
+    width = shape.dimensions.y;
+  } else {
+    width = ref_shape_size_info.shape.dimensions.y;
+  }
+
+  shape.dimensions.x = length;
+  shape.dimensions.y = width;
+
+  // create diagnal vector from c1 to center
+  Eigen::Vector3d new_centroid =
+    c1 - base2obj_transform.rotation() * (ex * length * 0.5 + ey * width * 0.5) + ref_center;
+  //
+  // c1 - base2obj_transform.rotation() * (ex * length * 0.5 + ey * width * 0.5);
+  pose.position.x = new_centroid.x();
+  pose.position.y = new_centroid.y();
+  pose.position.z = new_centroid.z();
+  return true;
+}
 }  // namespace corrector_utils
 
 }  // namespace autoware::shape_estimation
