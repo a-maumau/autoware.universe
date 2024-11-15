@@ -29,6 +29,8 @@
 
 namespace autoware::image_projection_based_fusion
 {
+using autoware::universe_utils::ScopedTimeTrack;
+
 RoiPointCloudFusionNode::RoiPointCloudFusionNode(const rclcpp::NodeOptions & options)
 : FusionNode<PointCloud2, DetectedObjectWithFeature, DetectedObjectsWithFeature>(
     "roi_pointcloud_fusion", options)
@@ -40,6 +42,26 @@ RoiPointCloudFusionNode::RoiPointCloudFusionNode(const rclcpp::NodeOptions & opt
   pub_objects_ptr_ =
     this->create_publisher<DetectedObjectsWithFeature>("output_clusters", rclcpp::QoS{1});
   cluster_debug_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("debug/clusters", 1);
+
+  // cache settings
+  cache_size_ = declare_parameter<int>("cache_size");
+  grid_size_ = declare_parameter<int>("grid_size");
+  half_grid_size_ = grid_size_ / 2;
+
+  // create each ROI cache
+  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
+    lidar_to_camera_caches_.emplace_back(cache_size_);
+  }
+
+  // time keeper
+  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+      detailed_processing_time_publisher_ =
+        this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+          "~/debug/processing_time_detail_ms", 1);
+      auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+      time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
+  }
 }
 
 void RoiPointCloudFusionNode::preprocess(
@@ -79,6 +101,9 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info,
   __attribute__((unused)) sensor_msgs::msg::PointCloud2 & output_pointcloud_msg)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (input_pointcloud_msg.data.empty()) {
     return;
   }
@@ -87,16 +112,18 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   std::vector<DetectedObjectWithFeature> output_objs;
   // select ROIs for fusion
   for (const auto & feature_obj : input_roi_msg.feature_objects) {
-    if (fuse_unknown_only_) {
-      bool is_roi_label_unknown = feature_obj.object.classification.front().label ==
-                                  autoware_perception_msgs::msg::ObjectClassification::UNKNOWN;
-      if (is_roi_label_unknown) {
-        output_objs.push_back(feature_obj);
-      }
-    } else {
-      // TODO(badai-nguyen): selected class from a list
+    // tmp commenting out
+
+    //if (fuse_unknown_only_) {
+    //  bool is_roi_label_unknown = feature_obj.object.classification.front().label ==
+    //                              autoware_perception_msgs::msg::ObjectClassification::UNKNOWN;
+    //  if (is_roi_label_unknown) {
+    //    output_objs.push_back(feature_obj);
+    //  }
+    //} else {
+    //  // TODO(badai-nguyen): selected class from a list
       output_objs.push_back(feature_obj);
-    }
+    //}
   }
   if (output_objs.empty()) {
     return;
@@ -105,6 +132,10 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   // transform pointcloud to camera optical frame id
   image_geometry::PinholeCameraModel pinhole_camera_model;
   pinhole_camera_model.fromCameraInfo(camera_info);
+
+  if (debugger_) {
+    debugger_->clear();
+  }
 
   geometry_msgs::msg::TransformStamped transform_stamped;
   {
@@ -134,6 +165,10 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
     cluster.data.resize(max_cluster_size_ * input_pointcloud_msg.point_step);
     clusters_data_size.push_back(0);
   }
+
+  std::vector<sensor_msgs::msg::RegionOfInterest> debug_image_rois;
+  std::vector<Eigen::Vector2d> debug_image_points;
+
   for (size_t offset = 0; offset < input_pointcloud_msg.data.size(); offset += point_step) {
     const float transformed_x =
       *reinterpret_cast<const float *>(&transformed_cloud.data[offset + x_offset]);
@@ -144,9 +179,15 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
     if (transformed_z <= 0.0) {
       continue;
     }
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-      pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-      point_project_to_unrectified_image_);
+
+    //Eigen::Vector2d projected_point= calcRawImageProjectedPoint(
+    //  pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+    //  point_project_to_unrectified_image_);
+    Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+        pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+        point_project_to_unrectified_image_);
+
     for (std::size_t i = 0; i < output_objs.size(); ++i) {
       auto & feature_obj = output_objs.at(i);
       const auto & check_roi = feature_obj.feature.roi;
@@ -164,8 +205,19 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
         std::memcpy(
           &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
         clusters_data_size.at(i) += point_step;
+
+        if (debugger_) {
+          debug_image_rois.push_back(check_roi);
+          debug_image_points.push_back(projected_point);
+        }
       }
     }
+  }
+
+  if (debugger_) {
+    debugger_->image_rois_ = debug_image_rois;
+    debugger_->obstacle_points_ = debug_image_points;
+    debugger_->publishImage(image_id, input_roi_msg.header.stamp);
   }
 
   // refine and update output_fused_objects_

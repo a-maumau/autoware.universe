@@ -17,10 +17,13 @@
 
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 #include "autoware/universe_utils/ros/debug_publisher.hpp"
+#include <autoware/universe_utils/system/lru_cache.hpp>
 
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
 
 #include "autoware_perception_msgs/msg/object_classification.hpp"
+
+#include <autoware/universe_utils/system/time_keeper.hpp>
 
 #include <map>
 #include <memory>
@@ -46,7 +49,7 @@ protected:
     const sensor_msgs::msg::CameraInfo & camera_info, DetectedObjects & output_object_msg) override;
 
   std::map<std::size_t, DetectedObjectWithFeature> generateDetectedObjectRoIs(
-    const DetectedObjects & input_object_msg, const double image_width, const double image_height,
+    const DetectedObjects & input_object_msg, const std::size_t image_id, const double image_width, const double image_height,
     const Eigen::Affine3d & object2camera_affine,
     const image_geometry::PinholeCameraModel & pinhole_camera_model);
 
@@ -72,6 +75,16 @@ private:
 
   std::map<int64_t, std::vector<bool>> passthrough_object_flags_map_, fused_object_flags_map_,
     ignored_object_flags_map_;
+
+  // caches
+  uint8_t cache_size_;
+  uint8_t grid_size_;
+  uint8_t half_grid_size_;
+  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
+
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
 };
 
 }  // namespace autoware::image_projection_based_fusion

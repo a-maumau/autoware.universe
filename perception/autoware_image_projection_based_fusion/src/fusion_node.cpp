@@ -121,7 +121,7 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
     this, get_clock(), period_ns, std::bind(&FusionNode::timer_callback, this));
 
   // debugger
-  if (declare_parameter("debug_mode", false)) {
+  if (declare_parameter("debug_mode", true)) {
     std::size_t image_buffer_size =
       static_cast<std::size_t>(declare_parameter<int32_t>("image_buffer_size"));
     debugger_ =

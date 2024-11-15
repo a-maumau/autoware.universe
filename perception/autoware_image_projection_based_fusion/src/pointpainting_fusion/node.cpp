@@ -32,6 +32,7 @@
 
 namespace
 {
+using autoware::universe_utils::ScopedTimeTrack;
 
 Eigen::Affine3f _transformToEigen(const geometry_msgs::msg::Transform & t)
 {
@@ -198,6 +199,27 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
     RCLCPP_INFO(this->get_logger(), "TensorRT engine is built and shutdown node.");
     rclcpp::shutdown();
   }
+
+  // cache settings
+  cache_size_ = declare_parameter<int>("cache_size");
+  grid_size_ = declare_parameter<int>("grid_size");
+  half_grid_size_ = grid_size_ / 2;
+
+  // create each ROI cache
+  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
+    lidar_to_camera_caches_.emplace_back(cache_size_);
+  }
+
+  // time keeper
+  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+      detailed_processing_time_publisher_ =
+        this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+          "~/debug/processing_time_detail_ms", 1);
+      auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+      time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
+  }
+
 }
 
 void PointPaintingFusionNode::preprocess(sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
@@ -260,6 +282,9 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info,
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (painted_pointcloud_msg.data.empty() || painted_pointcloud_msg.fields.empty()) {
     RCLCPP_WARN_STREAM_THROTTLE(
       this->get_logger(), *this->get_clock(), 1000, "Empty sensor points!");
@@ -342,8 +367,13 @@ dc   | dc dc dc  dc ||zc|
       continue;
     }
     // project
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-      pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
+    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
+    //projected_point = calcRawImageProjectedPoint(
+    //  pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
+    Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+        pinhole_camera_model, cv::Point3d(p_x, p_y, p_z),
+        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+        point_project_to_unrectified_image_);
 
     // iterate 2d bbox
     for (const auto & feature_object : objects) {

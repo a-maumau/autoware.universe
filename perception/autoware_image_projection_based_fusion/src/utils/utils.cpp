@@ -54,6 +54,35 @@ Eigen::Vector2d calcRawImageProjectedPoint(
   return Eigen::Vector2d(raw_image_point.x, raw_image_point.y);
 }
 
+Eigen::Vector2d calcRawImageProjectedPoint_approximation(
+  const image_geometry::PinholeCameraModel & pinhole_camera_model, const cv::Point3d & point3d,
+  autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d> & projection_cache,
+  const uint8_t & grid_size, const uint8_t & half_grid_size, const int & image_width, const bool & unrectify)
+{
+  const cv::Point2d rectified_image_point = pinhole_camera_model.project3dToPixel(point3d);
+
+  if (!unrectify) {
+    return Eigen::Vector2d(rectified_image_point.x, rectified_image_point.y);
+  }
+
+  // round to a near grid center
+  const uint32_t qx = static_cast<uint32_t>(rectified_image_point.x/grid_size)+grid_size+half_grid_size;
+  const uint32_t qy = static_cast<uint32_t>(rectified_image_point.y/grid_size)+grid_size+half_grid_size;
+  const uint32_t cache_key = static_cast<uint32_t>(qx+qy*image_width);
+
+  // if rounded position is already in the cache, then use it as an approximation
+  if (projection_cache.contains(cache_key)) {
+    return *projection_cache.get(cache_key);
+  } else {
+    cv::Point2d raw_image_point = pinhole_camera_model.unrectifyPoint(rectified_image_point);
+    Eigen::Vector2d projection_point(raw_image_point.x, raw_image_point.y);
+
+    projection_cache.put(cache_key, projection_point);
+
+    return *projection_cache.get(cache_key);
+  }
+}
+
 std::optional<geometry_msgs::msg::TransformStamped> getTransformStamped(
   const tf2_ros::Buffer & tf_buffer, const std::string & target_frame_id,
   const std::string & source_frame_id, const rclcpp::Time & time)

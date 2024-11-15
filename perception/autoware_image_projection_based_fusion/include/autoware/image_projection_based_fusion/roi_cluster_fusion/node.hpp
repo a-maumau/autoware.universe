@@ -17,11 +17,15 @@
 
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
+#include <autoware/universe_utils/system/lru_cache.hpp>
+#include <autoware/universe_utils/system/time_keeper.hpp>
+
 #include <map>
 #include <memory>
 #include <string>
 namespace autoware::image_projection_based_fusion
 {
+
 const std::map<std::string, uint8_t> IOU_MODE_MAP{{"iou", 0}, {"iou_x", 1}, {"iou_y", 2}};
 
 class RoiClusterFusionNode
@@ -53,6 +57,16 @@ protected:
   double fusion_distance_;
   double trust_object_distance_;
   std::string non_trust_object_iou_mode_{"iou_x"};
+  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
+
+  uint8_t cache_size_;
+  uint8_t grid_size_;
+  uint8_t half_grid_size_;
+
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
+
   bool is_far_enough(const DetectedObjectWithFeature & obj, const double distance_threshold);
   bool out_of_scope(const DetectedObjectWithFeature & obj);
   double cal_iou_by_mode(

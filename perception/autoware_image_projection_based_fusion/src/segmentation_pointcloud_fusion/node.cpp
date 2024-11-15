@@ -29,6 +29,8 @@
 
 namespace autoware::image_projection_based_fusion
 {
+using autoware::universe_utils::ScopedTimeTrack;
+
 SegmentPointCloudFusionNode::SegmentPointCloudFusionNode(const rclcpp::NodeOptions & options)
 : FusionNode<PointCloud2, PointCloud2, Image>("segmentation_pointcloud_fusion", options)
 {
@@ -40,8 +42,29 @@ SegmentPointCloudFusionNode::SegmentPointCloudFusionNode(const rclcpp::NodeOptio
     RCLCPP_INFO(
       this->get_logger(), "filter_semantic_label_target: %s %d", item.first.c_str(), item.second);
   }
-  is_publish_debug_mask_ = declare_parameter<bool>("is_publish_debug_mask");
+
+  // cache settings
+  cache_size_ = declare_parameter<int>("cache_size");
+  grid_size_ = declare_parameter<int>("grid_size");
+  half_grid_size_ = grid_size_ / 2;
+
+  // create each ROI cache
+  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
+    lidar_to_camera_caches_.emplace_back(cache_size_);
+  }
+
+  is_publish_debug_mask_ = true;//declare_parameter<bool>("is_publish_debug_mask");
   pub_debug_mask_ptr_ = image_transport::create_publisher(this, "~/debug/mask");
+
+  // time keeper
+  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+      detailed_processing_time_publisher_ =
+        this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+          "~/debug/processing_time_detail_ms", 1);
+      auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+      time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
+  }
 }
 
 void SegmentPointCloudFusionNode::preprocess(__attribute__((unused)) PointCloud2 & pointcloud_msg)
@@ -79,6 +102,9 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
   [[maybe_unused]] const Image & input_mask, __attribute__((unused)) const CameraInfo & camera_info,
   __attribute__((unused)) PointCloud2 & output_cloud)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (input_pointcloud_msg.data.empty()) {
     return;
   }
@@ -136,9 +162,13 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
       continue;
     }
 
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-      pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-      point_project_to_unrectified_image_);
+    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
+    //  pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+    //  point_project_to_unrectified_image_);
+    Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+        pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+        point_project_to_unrectified_image_);
 
     bool is_inside_image = projected_point.x() > 0 && projected_point.x() < camera_info.width &&
                            projected_point.y() > 0 && projected_point.y() < camera_info.height;

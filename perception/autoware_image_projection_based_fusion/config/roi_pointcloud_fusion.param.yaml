@@ -4,3 +4,8 @@
     min_cluster_size: 2
     max_cluster_size: 20
     cluster_2d_tolerance: 0.5
+
+    # group the image pixel with this grid size patch
+    grid_size: 16
+    # for instance, (1920/16)*(1440/16) = 10800
+    cache_size: 6400

@@ -21,6 +21,7 @@
 
 namespace autoware::image_projection_based_fusion
 {
+using autoware::universe_utils::ScopedTimeTrack;
 
 RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptions & options)
 : FusionNode<DetectedObjects, DetectedObject, DetectedObjectsWithFeature>(
@@ -39,6 +40,26 @@ RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptio
     Eigen::Map<Eigen::MatrixXi> can_assign_matrix_tmp(
       can_assign_vector.data(), label_num, label_num);
     fusion_params_.can_assign_matrix = can_assign_matrix_tmp.transpose();
+  }
+
+  // cache settings
+  cache_size_ = declare_parameter<int>("cache_size");
+  grid_size_ = declare_parameter<int>("grid_size");
+  half_grid_size_ = grid_size_ / 2;
+
+  // create each ROI cache
+  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
+    lidar_to_camera_caches_.emplace_back(cache_size_);
+  }
+
+  // time keeper
+  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+      detailed_processing_time_publisher_ =
+        this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+          "~/debug/processing_time_detail_ms", 1);
+      auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+      time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
   }
 }
 
@@ -76,6 +97,9 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info,
   DetectedObjects & output_object_msg __attribute__((unused)))
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (!checkCameraInfo(camera_info)) return;
 
   Eigen::Affine3d object2camera_affine;
@@ -93,7 +117,7 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   pinhole_camera_model.fromCameraInfo(camera_info);
 
   const auto object_roi_map = generateDetectedObjectRoIs(
-    input_object_msg, static_cast<double>(camera_info.width),
+    input_object_msg, image_id, static_cast<double>(camera_info.width),
     static_cast<double>(camera_info.height), object2camera_affine, pinhole_camera_model);
   fuseObjectsOnImage(input_object_msg, input_roi_msg.feature_objects, object_roi_map);
 
@@ -108,10 +132,13 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
 
 std::map<std::size_t, DetectedObjectWithFeature>
 RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
-  const DetectedObjects & input_object_msg, const double image_width, const double image_height,
+  const DetectedObjects & input_object_msg, const std::size_t image_id, const double image_width, const double image_height,
   const Eigen::Affine3d & object2camera_affine,
   const image_geometry::PinholeCameraModel & pinhole_camera_model)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   std::map<std::size_t, DetectedObjectWithFeature> object_roi_map;
   int64_t timestamp_nsec =
     input_object_msg.header.stamp.sec * (int64_t)1e9 + input_object_msg.header.stamp.nanosec;
@@ -149,8 +176,12 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
         continue;
       }
 
-      Eigen::Vector2d proj_point = calcRawImageProjectedPoint(
+      //Eigen::Vector2d proj_point = calcRawImageProjectedPoint(
+      //  pinhole_camera_model, cv::Point3d(point.x(), point.y(), point.z()),
+      //  point_project_to_unrectified_image_);
+      Eigen::Vector2d proj_point = calcRawImageProjectedPoint_approximation(
         pinhole_camera_model, cv::Point3d(point.x(), point.y(), point.z()),
+        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, image_width,
         point_project_to_unrectified_image_);
 
       min_x = std::min(proj_point.x(), min_x);

@@ -35,6 +35,7 @@
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
 #include <autoware/universe_utils/geometry/geometry.hpp>
+#include <autoware/universe_utils/system/lru_cache.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -68,6 +69,11 @@ bool checkCameraInfo(const sensor_msgs::msg::CameraInfo & camera_info);
 Eigen::Vector2d calcRawImageProjectedPoint(
   const image_geometry::PinholeCameraModel & pinhole_camera_model, const cv::Point3d & point3d,
   const bool & unrectify = false);
+
+Eigen::Vector2d calcRawImageProjectedPoint_approximation(
+  const image_geometry::PinholeCameraModel & pinhole_camera_model, const cv::Point3d & point3d,
+  autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d> & projection_cache,
+  const uint8_t & grid_size, const uint8_t & half_grid_size, const int & image_width, const bool & unrectify=false);
 
 std::optional<geometry_msgs::msg::TransformStamped> getTransformStamped(
   const tf2_ros::Buffer & tf_buffer, const std::string & target_frame_id,

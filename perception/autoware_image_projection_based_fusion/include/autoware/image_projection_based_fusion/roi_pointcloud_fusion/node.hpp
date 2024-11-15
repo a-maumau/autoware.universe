@@ -18,6 +18,9 @@
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
+#include <autoware/universe_utils/system/lru_cache.hpp>
+
+#include <autoware/universe_utils/system/time_keeper.hpp>
 
 #include <string>
 #include <vector>
@@ -31,6 +34,16 @@ private:
   int max_cluster_size_{20};
   bool fuse_unknown_only_{true};
   double cluster_2d_tolerance_;
+
+  // caches
+  uint8_t cache_size_;
+  uint8_t grid_size_;
+  uint8_t half_grid_size_;
+  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
+
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
 
   rclcpp::Publisher<DetectedObjectsWithFeature>::SharedPtr pub_objects_ptr_;
   std::vector<DetectedObjectWithFeature> output_fused_objects_;
