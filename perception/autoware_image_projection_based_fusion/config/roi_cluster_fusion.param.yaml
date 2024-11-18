@@ -12,7 +12,7 @@
     remove_unknown: true
 
     # group the image pixel with this grid size patch
-    grid_size: 16
+    grid_size: 1
     # for instance, quiantize image grid number will be
     # (1920/16)*(1440/16) = 10800 in grid_size = 16
-    cache_size: 6400
+    cache_size: 100000

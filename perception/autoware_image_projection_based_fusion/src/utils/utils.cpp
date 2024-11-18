@@ -66,15 +66,15 @@ Eigen::Vector2d calcRawImageProjectedPoint_approximation(
   }
 
   // round to a near grid center
-  const uint32_t qx = static_cast<uint32_t>(rectified_image_point.x/grid_size)+grid_size+half_grid_size;
-  const uint32_t qy = static_cast<uint32_t>(rectified_image_point.y/grid_size)+grid_size+half_grid_size;
+  const uint32_t qx = static_cast<uint32_t>(rectified_image_point.x/grid_size)*grid_size+half_grid_size;
+  const uint32_t qy = static_cast<uint32_t>(rectified_image_point.y/grid_size)*grid_size+half_grid_size;
   const uint32_t cache_key = static_cast<uint32_t>(qx+qy*image_width);
 
   // if rounded position is already in the cache, then use it as an approximation
   if (projection_cache.contains(cache_key)) {
     return *projection_cache.get(cache_key);
   } else {
-    cv::Point2d raw_image_point = pinhole_camera_model.unrectifyPoint(rectified_image_point);
+    cv::Point2d raw_image_point = pinhole_camera_model.unrectifyPoint(cv::Point2d(qx, qy));
     Eigen::Vector2d projection_point(raw_image_point.x, raw_image_point.y);
 
     projection_cache.put(cache_key, projection_point);

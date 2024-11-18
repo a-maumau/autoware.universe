@@ -164,13 +164,13 @@ void RoiClusterFusionNode::fuseOnSingleImage(
         continue;
       }
 
-      Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-        pinhole_camera_model, cv::Point3d(*iter_x, *iter_y, *iter_z),
-        point_project_to_unrectified_image_);
-      //Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+      //Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
       //  pinhole_camera_model, cv::Point3d(*iter_x, *iter_y, *iter_z),
-      //  lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
       //  point_project_to_unrectified_image_);
+      Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+        pinhole_camera_model, cv::Point3d(*iter_x, *iter_y, *iter_z),
+        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+        point_project_to_unrectified_image_);
       if (
         0 <= static_cast<int>(projected_point.x()) &&
         static_cast<int>(projected_point.x()) <= static_cast<int>(camera_info.width) - 1 &&
