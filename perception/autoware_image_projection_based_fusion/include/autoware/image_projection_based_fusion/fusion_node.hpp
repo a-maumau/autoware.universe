@@ -15,6 +15,7 @@
 #ifndef AUTOWARE__IMAGE_PROJECTION_BASED_FUSION__FUSION_NODE_HPP_
 #define AUTOWARE__IMAGE_PROJECTION_BASED_FUSION__FUSION_NODE_HPP_
 
+#include <autoware/image_projection_based_fusion/camera_projection.hpp>
 #include <autoware/image_projection_based_fusion/debugger.hpp>
 #include <autoware/universe_utils/ros/debug_publisher.hpp>
 #include <autoware/universe_utils/system/stop_watch.hpp>
@@ -104,8 +105,11 @@ protected:
   // camera_info
   std::map<std::size_t, sensor_msgs::msg::CameraInfo> camera_info_map_;
   std::vector<rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr> camera_info_subs_;
+  std::vector<autoware::image_projection_based_fusion::CameraProjection> camera_projectors_;
 
   rclcpp::TimerBase::SharedPtr timer_;
+  bool approximate_projection_;
+  float approximation_grid_size_;
   double timeout_ms_{};
   double match_threshold_ms_{};
   std::vector<std::string> input_rois_topics_;

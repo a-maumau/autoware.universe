@@ -10,9 +10,3 @@
     iou_threshold: 0.65
     unknown_iou_threshold: 0.1
     remove_unknown: true
-
-    # group the image pixel with this grid size patch
-    grid_size: 1
-    # for instance, quiantize image grid number will be
-    # (1920/16)*(1440/16) = 10800 in grid_size = 16
-    cache_size: 100000

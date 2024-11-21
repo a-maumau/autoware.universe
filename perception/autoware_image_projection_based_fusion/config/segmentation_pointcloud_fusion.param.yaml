@@ -25,8 +25,3 @@
 
     # Avoid using debug mask in case of multiple camera semantic segmentation fusion
     is_publish_debug_mask: true
-
-    # group the image pixel with this grid size patch
-    grid_size: 16
-    # for instance, (1920/16)*(1440/16) = 10800
-    cache_size: 6400

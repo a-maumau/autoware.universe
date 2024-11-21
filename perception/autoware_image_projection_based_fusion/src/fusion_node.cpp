@@ -19,6 +19,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <autoware/image_projection_based_fusion/utils/utils.hpp>
 #include <tier4_perception_msgs/msg/detected_object_with_feature.hpp>
 
 #include <boost/optional.hpp>
@@ -59,6 +60,8 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
   }
 
   // Set parameters
+  approximate_projection_ = declare_parameter<bool>("approximate_projection");
+  approximation_grid_size_ = declare_parameter<float>("approximation_grid_size");
   match_threshold_ms_ = declare_parameter<double>("match_threshold_ms");
   timeout_ms_ = declare_parameter<double>("timeout_ms");
 
@@ -87,6 +90,7 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
 
   // sub camera info
   camera_info_subs_.resize(rois_number_);
+  camera_projectors_.resize(rois_number_);
   for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
     std::function<void(const sensor_msgs::msg::CameraInfo::ConstSharedPtr msg)> fnc =
       std::bind(&FusionNode::cameraInfoCallback, this, std::placeholders::_1, roi_i);
@@ -153,7 +157,14 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::cameraInfoCallback(
   const sensor_msgs::msg::CameraInfo::ConstSharedPtr input_camera_info_msg,
   const std::size_t camera_id)
 {
-  camera_info_map_[camera_id] = *input_camera_info_msg;
+  // create the CameraProjection when the camera info arrives for the first time
+  // assuming the camera info does not change while the node is running
+  if(camera_info_map_.find(camera_id) == camera_info_map_.end() && checkCameraInfo(*input_camera_info_msg)){
+    camera_projectors_.at(camera_id) =
+      CameraProjection(*input_camera_info_msg, approximation_grid_size_,
+        point_project_to_unrectified_image_, approximate_projection_);
+    camera_info_map_[camera_id] = *input_camera_info_msg;
+  }
 }
 
 template <class TargetMsg3D, class Obj, class Msg2D>

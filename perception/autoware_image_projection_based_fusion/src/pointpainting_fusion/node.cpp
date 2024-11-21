@@ -157,12 +157,12 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
   sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "~/input/pointcloud", rclcpp::SensorDataQoS().keep_last(3), sub_callback);
 
-  tan_h_.resize(rois_number_);
-  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
-    auto fx = camera_info_map_[roi_i].k.at(0);
-    auto x0 = camera_info_map_[roi_i].k.at(2);
-    tan_h_[roi_i] = x0 / fx;
-  }
+  //tan_h_.resize(rois_number_);
+  //for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
+  //  auto fx = camera_info_map_[roi_i].k.at(0);
+  //  auto x0 = camera_info_map_[roi_i].k.at(2);
+  //  tan_h_[roi_i] = x0 / fx;
+  //}
 
   detection_class_remapper_.setParameters(
     allow_remapping_by_area_matrix, min_area_matrix, max_area_matrix);
@@ -195,21 +195,6 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
 
   obj_pub_ptr_ = this->create_publisher<DetectedObjects>("~/output/objects", rclcpp::QoS{1});
 
-  if (this->declare_parameter("build_only", false)) {
-    RCLCPP_INFO(this->get_logger(), "TensorRT engine is built and shutdown node.");
-    rclcpp::shutdown();
-  }
-
-  // cache settings
-  cache_size_ = declare_parameter<int>("cache_size");
-  grid_size_ = declare_parameter<int>("grid_size");
-  half_grid_size_ = grid_size_ / 2;
-
-  // create each ROI cache
-  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
-    lidar_to_camera_caches_.emplace_back(cache_size_);
-  }
-
   // time keeper
   bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
@@ -220,6 +205,10 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
       time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
   }
 
+  if (this->declare_parameter("build_only", false)) {
+    RCLCPP_INFO(this->get_logger(), "TensorRT engine is built and shutdown node.");
+    rclcpp::shutdown();
+  }
 }
 
 void PointPaintingFusionNode::preprocess(sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
@@ -279,7 +268,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   __attribute__((unused)) const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg,
   __attribute__((unused)) const std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  const sensor_msgs::msg::CameraInfo & camera_info,
+  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -295,8 +284,6 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   if (num_bbox == 0) {
     return;
   }
-
-  if (!checkCameraInfo(camera_info)) return;
 
   std::vector<sensor_msgs::msg::RegionOfInterest> debug_image_rois;
   std::vector<Eigen::Vector2d> debug_image_points;
@@ -329,9 +316,6 @@ void PointPaintingFusionNode::fuseOnSingleImage(
                           .offset;
   const auto class_offset = painted_pointcloud_msg.fields.at(4).offset;
   const auto p_step = painted_pointcloud_msg.point_step;
-  // projection matrix
-  image_geometry::PinholeCameraModel pinhole_camera_model;
-  pinhole_camera_model.fromCameraInfo(camera_info);
 
   Eigen::Vector3f point_lidar, point_camera;
   /** dc : don't care
@@ -342,7 +326,19 @@ dc   | dc dc dc  dc ||zc|
                      |dc|
    **/
 
-  auto objects = input_roi_msg.feature_objects;
+  std::vector<FeatureobjectAndROIInfo> feature_object_with_roi_info;
+  for (const auto & feature_object : input_roi_msg.feature_objects) {
+    feature_object_with_roi_info.push_back(
+      FeatureobjectAndROIInfo{
+        &feature_object, feature_object.feature.roi.x_offset+feature_object.feature.roi.width, feature_object.object.classification.front().label
+    });
+  }
+  // sort the ROI by their x-values to search efficiently
+  std::sort(feature_object_with_roi_info.begin(), feature_object_with_roi_info.end(),
+    [](const auto &a, const auto &b) { return a.feature_obj->feature.roi.x_offset < b.feature_obj->feature.roi.x_offset; }
+  );
+
+
   int iterations = painted_pointcloud_msg.data.size() / painted_pointcloud_msg.point_step;
   // iterate points
   // Requires 'OMP_NUM_THREADS=N'
@@ -363,45 +359,61 @@ dc   | dc dc dc  dc ||zc|
     p_y = point_camera.y();
     p_z = point_camera.z();
 
-    if (p_z <= 0.0 || p_x > (tan_h_.at(image_id) * p_z) || p_x < (-tan_h_.at(image_id) * p_z)) {
+    if (camera_projectors_[image_id].isOutsideHorizontalView(p_x, p_z)) {
       continue;
     }
     // project
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-    projected_point = calcRawImageProjectedPoint(
-      pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
-    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
-    //    pinhole_camera_model, cv::Point3d(p_x, p_y, p_z),
-    //    lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
-    //    point_project_to_unrectified_image_);
+    Eigen::Vector2d projected_point;
+    if (camera_projectors_[image_id].calcRawImageProjectedPoint(
+      cv::Point3d(p_x, p_y, p_z), projected_point
+    )) {
+      double px = projected_point.x();
+      double py = projected_point.y();
 
-    // iterate 2d bbox
-    for (const auto & feature_object : objects) {
-      sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
-      // paint current point if it is inside bbox
-      int label2d = feature_object.object.classification.front().label;
-      if (!isUnknown(label2d) && isInsideBbox(projected_point.x(), projected_point.y(), roi, 1.0)) {
-        // cppcheck-suppress invalidPointerCast
-        auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
-        for (const auto & cls : isClassTable_) {
-          // add up the class values if the point belongs to multiple classes
-          *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
-        }
-      }
-#if 0
+#if 1
       // Parallelizing loop don't support push_back
       if (debugger_) {
         debug_image_points.push_back(projected_point);
       }
 #endif
+
+      // filter the points in the left side of most left located ROI
+      // if isInsideBbox's zc is not 1.0, this will break the logic
+      // since it is assuming on the image plane (pixel coodinate)
+      if (feature_object_with_roi_info.size() > 0 && px < feature_object_with_roi_info[0].feature_obj->feature.roi.x_offset) {
+        continue;
+      }
+
+      // iterate 2d bbox
+      for (const auto & obj : feature_object_with_roi_info) {
+        const DetectedObjectWithFeature & feature_object = *obj.feature_obj;
+        sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
+        // paint current point if it is inside bbox
+        int label2d = obj.label;
+        if (!isUnknown(label2d) && isInsideBbox(px, py, roi, 1.0)) {
+          // cppcheck-suppress invalidPointerCast
+          auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
+          for (const auto & cls : isClassTable_) {
+            // add up the class values if the point belongs to multiple classes
+            *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
+          }
+        }
+        // if the projected_point is in the right side of the ROI,
+        // we don't need to search more than this ROI bbox
+        // if isInsideBbox's zc is not 1.0, this will break the logic
+        // since it is assuming on the image plane (pixel coodinate)
+        if (px > obj.roi_right_side_x){
+          break;
+        }
+      }
     }
   }
 
-  for (const auto & feature_object : input_roi_msg.feature_objects) {
-    debug_image_rois.push_back(feature_object.feature.roi);
-  }
-
   if (debugger_) {
+    for (const auto & feature_object : input_roi_msg.feature_objects) {
+      debug_image_rois.push_back(feature_object.feature.roi);
+    }
+
     debugger_->image_rois_ = debug_image_rois;
     debugger_->obstacle_points_ = debug_image_points;
     debugger_->publishImage(image_id, input_roi_msg.header.stamp);

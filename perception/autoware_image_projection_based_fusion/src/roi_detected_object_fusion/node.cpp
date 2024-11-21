@@ -42,16 +42,6 @@ RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptio
     fusion_params_.can_assign_matrix = can_assign_matrix_tmp.transpose();
   }
 
-  // cache settings
-  cache_size_ = declare_parameter<int>("cache_size");
-  grid_size_ = declare_parameter<int>("grid_size");
-  half_grid_size_ = grid_size_ / 2;
-
-  // create each ROI cache
-  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
-    lidar_to_camera_caches_.emplace_back(cache_size_);
-  }
-
   // time keeper
   bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
@@ -132,9 +122,9 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
 
 std::map<std::size_t, DetectedObjectWithFeature>
 RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
-  const DetectedObjects & input_object_msg, const std::size_t image_id, const double image_width, const double image_height,
+  const DetectedObjects & input_object_msg, const std::size_t image_id, __attribute__((unused)) const double image_width, __attribute__((unused)) const double image_height,
   const Eigen::Affine3d & object2camera_affine,
-  const image_geometry::PinholeCameraModel & pinhole_camera_model)
+  __attribute__((unused)) const image_geometry::PinholeCameraModel & pinhole_camera_model)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
   if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
@@ -176,22 +166,15 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
         continue;
       }
 
-      //Eigen::Vector2d proj_point = calcRawImageProjectedPoint(
-      //  pinhole_camera_model, cv::Point3d(point.x(), point.y(), point.z()),
-      //  point_project_to_unrectified_image_);
-      Eigen::Vector2d proj_point = calcRawImageProjectedPoint_approximation(
-        pinhole_camera_model, cv::Point3d(point.x(), point.y(), point.z()),
-        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, image_width,
-        point_project_to_unrectified_image_);
+      Eigen::Vector2d proj_point;
+      if (camera_projectors_[image_id].calcRawImageProjectedPoint(
+        cv::Point3d(point.x(), point.y(), point.z()), proj_point
+      )){
+        min_x = std::min(proj_point.x(), min_x);
+        min_y = std::min(proj_point.y(), min_y);
+        max_x = std::max(proj_point.x(), max_x);
+        max_y = std::max(proj_point.y(), max_y);
 
-      min_x = std::min(proj_point.x(), min_x);
-      min_y = std::min(proj_point.y(), min_y);
-      max_x = std::max(proj_point.x(), max_x);
-      max_y = std::max(proj_point.y(), max_y);
-
-      if (
-        proj_point.x() >= 0 && proj_point.x() <= image_width - 1 && proj_point.y() >= 0 &&
-        proj_point.y() <= image_height - 1) {
         point_on_image_cnt++;
 
         if (debugger_) {
@@ -202,11 +185,6 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
     if (point_on_image_cnt < 3) {
       continue;
     }
-
-    min_x = std::max(min_x, 0.0);
-    min_y = std::max(min_y, 0.0);
-    max_x = std::min(max_x, image_width - 1);
-    max_y = std::min(max_y, image_height - 1);
 
     DetectedObjectWithFeature object_roi;
     object_roi.feature.roi.x_offset = static_cast<std::uint32_t>(min_x);
@@ -231,6 +209,9 @@ void RoiDetectedObjectFusionNode::fuseObjectsOnImage(
   const std::vector<DetectedObjectWithFeature> & image_rois,
   const std::map<std::size_t, DetectedObjectWithFeature> & object_roi_map)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   int64_t timestamp_nsec =
     input_object_msg.header.stamp.sec * (int64_t)1e9 + input_object_msg.header.stamp.nanosec;
   if (fused_object_flags_map_.size() == 0 || ignored_object_flags_map_.size() == 0) {

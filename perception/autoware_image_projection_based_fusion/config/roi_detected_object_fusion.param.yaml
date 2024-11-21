@@ -7,11 +7,6 @@
     use_roi_probability: false
     roi_probability_threshold: 0.5
 
-    # group the image pixel with this grid size patch
-    grid_size: 16
-    # for instance, (1920/16)*(1440/16) = 10800
-    cache_size: 6400
-
     can_assign_matrix:
       #UNKNOWN, CAR, TRUCK, BUS, TRAILER, MOTORBIKE, BICYCLE, PEDESTRIAN <-roi_msg
       [1,       0,   0,     0,   0,       0,         0,       0,         # UNKNOWN <-detected_objects

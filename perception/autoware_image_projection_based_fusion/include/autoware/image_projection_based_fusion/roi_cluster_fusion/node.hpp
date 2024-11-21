@@ -57,11 +57,6 @@ protected:
   double fusion_distance_;
   double trust_object_distance_;
   std::string non_trust_object_iou_mode_{"iou_x"};
-  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
-
-  uint8_t cache_size_;
-  uint8_t grid_size_;
-  uint8_t half_grid_size_;
 
   rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
     detailed_processing_time_publisher_;

@@ -43,16 +43,6 @@ SegmentPointCloudFusionNode::SegmentPointCloudFusionNode(const rclcpp::NodeOptio
       this->get_logger(), "filter_semantic_label_target: %s %d", item.first.c_str(), item.second);
   }
 
-  // cache settings
-  cache_size_ = declare_parameter<int>("cache_size");
-  grid_size_ = declare_parameter<int>("grid_size");
-  half_grid_size_ = grid_size_ / 2;
-
-  // create each ROI cache
-  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
-    lidar_to_camera_caches_.emplace_back(cache_size_);
-  }
-
   is_publish_debug_mask_ = true;//declare_parameter<bool>("is_publish_debug_mask");
   pub_debug_mask_ptr_ = image_transport::create_publisher(this, "~/debug/mask");
 
@@ -108,7 +98,6 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
   if (input_pointcloud_msg.data.empty()) {
     return;
   }
-  if (!checkCameraInfo(camera_info)) return;
   if (input_mask.height == 0 || input_mask.width == 0) {
     return;
   }
@@ -126,8 +115,6 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
   const int orig_height = camera_info.height;
   // resize mask to the same size as the camera image
   cv::resize(mask, mask, cv::Size(orig_width, orig_height), 0, 0, cv::INTER_NEAREST);
-  image_geometry::PinholeCameraModel pinhole_camera_model;
-  pinhole_camera_model.fromCameraInfo(camera_info);
 
   geometry_msgs::msg::TransformStamped transform_stamped;
   // transform pointcloud from frame id to camera optical frame id
@@ -165,14 +152,15 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
     //Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
     //  pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
     //  point_project_to_unrectified_image_);
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
-        pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
-        point_project_to_unrectified_image_);
+    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+    //    pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+    //    lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+    //    point_project_to_unrectified_image_);
 
-    bool is_inside_image = projected_point.x() > 0 && projected_point.x() < camera_info.width &&
-                           projected_point.y() > 0 && projected_point.y() < camera_info.height;
-    if (!is_inside_image) {
+    Eigen::Vector2d projected_point;
+    if (!camera_projectors_[image_id].calcRawImageProjectedPoint(
+      cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point
+    )){
       continue;
     }
 

@@ -98,7 +98,7 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg,
   __attribute__((unused)) const std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  const sensor_msgs::msg::CameraInfo & camera_info,
+  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   __attribute__((unused)) sensor_msgs::msg::PointCloud2 & output_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -107,7 +107,6 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   if (input_pointcloud_msg.data.empty()) {
     return;
   }
-  if (!checkCameraInfo(camera_info)) return;
 
   std::vector<DetectedObjectWithFeature> output_objs;
   // select ROIs for fusion
@@ -128,10 +127,6 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   if (output_objs.empty()) {
     return;
   }
-
-  // transform pointcloud to camera optical frame id
-  image_geometry::PinholeCameraModel pinhole_camera_model;
-  pinhole_camera_model.fromCameraInfo(camera_info);
 
   if (debugger_) {
     debugger_->clear();
@@ -183,32 +178,34 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
     //Eigen::Vector2d projected_point= calcRawImageProjectedPoint(
     //  pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
     //  point_project_to_unrectified_image_);
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
-        pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-        lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
-        point_project_to_unrectified_image_);
+    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
+    //    pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
+    //    lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
+    //    point_project_to_unrectified_image_);
+    Eigen::Vector2d projected_point;
+    if (camera_projectors_[image_id].calcRawImageProjectedPoint(cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point)) {
+      for (std::size_t i = 0; i < output_objs.size(); ++i) {
+        auto & feature_obj = output_objs.at(i);
+        const auto & check_roi = feature_obj.feature.roi;
+        auto & cluster = clusters.at(i);
 
-    for (std::size_t i = 0; i < output_objs.size(); ++i) {
-      auto & feature_obj = output_objs.at(i);
-      const auto & check_roi = feature_obj.feature.roi;
-      auto & cluster = clusters.at(i);
+        if (
+          clusters_data_size.at(i) >=
+          static_cast<size_t>(max_cluster_size_) * static_cast<size_t>(point_step)) {
+          continue;
+        }
+        if (
+          check_roi.x_offset <= projected_point.x() && check_roi.y_offset <= projected_point.y() &&
+          check_roi.x_offset + check_roi.width >= projected_point.x() &&
+          check_roi.y_offset + check_roi.height >= projected_point.y()) {
+          std::memcpy(
+            &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
+          clusters_data_size.at(i) += point_step;
 
-      if (
-        clusters_data_size.at(i) >=
-        static_cast<size_t>(max_cluster_size_) * static_cast<size_t>(point_step)) {
-        continue;
-      }
-      if (
-        check_roi.x_offset <= projected_point.x() && check_roi.y_offset <= projected_point.y() &&
-        check_roi.x_offset + check_roi.width >= projected_point.x() &&
-        check_roi.y_offset + check_roi.height >= projected_point.y()) {
-        std::memcpy(
-          &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
-        clusters_data_size.at(i) += point_step;
-
-        if (debugger_) {
-          debug_image_rois.push_back(check_roi);
-          debug_image_points.push_back(projected_point);
+          if (debugger_) {
+            debug_image_rois.push_back(check_roi);
+            debug_image_points.push_back(projected_point);
+          }
         }
       }
     }

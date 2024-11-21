@@ -24,6 +24,7 @@ bool checkCameraInfo(const sensor_msgs::msg::CameraInfo & camera_info)
     (camera_info.distortion_model == sensor_msgs::distortion_models::PLUMB_BOB ||
      camera_info.distortion_model == sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL);
   if (!is_supported_model) {
+    std::cout << camera_info.distortion_model.length() << std::endl;
     RCLCPP_ERROR_STREAM(
       rclcpp::get_logger("image_projection_based_fusion"),
       "checkCameraInfo: Unsupported distortion model: " << camera_info.distortion_model);
@@ -68,6 +69,8 @@ Eigen::Vector2d calcRawImageProjectedPoint_approximation(
   // round to a near grid center
   const uint32_t qx = static_cast<uint32_t>(rectified_image_point.x/grid_size)*grid_size+half_grid_size;
   const uint32_t qy = static_cast<uint32_t>(rectified_image_point.y/grid_size)*grid_size+half_grid_size;
+  //const uint32_t qx = static_cast<uint32_t>(rectified_image_point.x/grid_size)*grid_size+half_grid_size;
+  //const uint32_t qy = static_cast<uint32_t>(rectified_image_point.y/grid_size)*grid_size+half_grid_size;
   const uint32_t cache_key = static_cast<uint32_t>(qx+qy*image_width);
 
   // if rounded position is already in the cache, then use it as an approximation
