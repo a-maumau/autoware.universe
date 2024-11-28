@@ -58,7 +58,6 @@ RoiClusterFusionNode::RoiClusterFusionNode(const rclcpp::NodeOptions & options)
       auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
       time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
   }
-
 }
 
 void RoiClusterFusionNode::preprocess(DetectedObjectsWithFeature & output_cluster_msg)
