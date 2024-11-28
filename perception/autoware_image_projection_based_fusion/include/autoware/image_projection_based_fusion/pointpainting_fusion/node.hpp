@@ -70,8 +70,6 @@ protected:
 
   rclcpp::Publisher<DetectedObjects>::SharedPtr obj_pub_ptr_;
 
-  //std::vector<double> tan_h_;  // horizontal field of view
-
   int omp_num_threads_{1};
   float score_threshold_{0.0};
   std::vector<std::string> class_names_;

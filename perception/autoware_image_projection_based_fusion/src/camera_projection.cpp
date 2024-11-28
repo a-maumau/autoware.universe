@@ -47,7 +47,7 @@ CameraProjection::CameraProjection(
   tan_h_y_ = camera_info.k.at(5)/camera_info.k.at(4);
 
   if (use_approximation_) {
-    // if we need to consider the result of rectification, we need to adjust the cache size
+    // create the cache with size of grid center
     projection_cache_ =
       std::make_shared<autoware::universe_utils::LRUCache<float, Eigen::Vector2d>>(cache_size_);
     initializeCache();
