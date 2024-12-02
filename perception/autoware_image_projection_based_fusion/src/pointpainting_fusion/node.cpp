@@ -265,7 +265,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (painted_pointcloud_msg.data.empty() || painted_pointcloud_msg.fields.empty()) {
     RCLCPP_WARN_STREAM_THROTTLE(
@@ -363,11 +363,11 @@ dc   | dc dc dc  dc ||zc|
       double px = projected_point.x();
       double py = projected_point.y();
 
-#if 1
+#if 0
       // Parallelizing loop don't support push_back
-      if (debugger_) {
-        debug_image_points.push_back(projected_point);
-      }
+      //if (debugger_) {
+      //  debug_image_points.push_back(projected_point);
+      //}
 #endif
 
       // filter the points in the left side of most left located ROI
@@ -403,6 +403,9 @@ dc   | dc dc dc  dc ||zc|
   }
 
   if (debugger_) {
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("debug_publish", *time_keeper_);
+
     for (const auto & feature_object : input_roi_msg.feature_objects) {
       debug_image_rois.push_back(feature_object.feature.roi);
     }

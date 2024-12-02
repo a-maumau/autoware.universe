@@ -102,7 +102,7 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   __attribute__((unused)) sensor_msgs::msg::PointCloud2 & output_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (input_pointcloud_msg.data.empty()) {
     return;

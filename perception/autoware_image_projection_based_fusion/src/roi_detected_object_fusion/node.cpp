@@ -88,7 +88,7 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   DetectedObjects & output_object_msg __attribute__((unused)))
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (!checkCameraInfo(camera_info)) return;
 
@@ -127,7 +127,7 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
   __attribute__((unused)) const image_geometry::PinholeCameraModel & pinhole_camera_model)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   std::map<std::size_t, DetectedObjectWithFeature> object_roi_map;
   int64_t timestamp_nsec =
@@ -209,8 +209,8 @@ void RoiDetectedObjectFusionNode::fuseObjectsOnImage(
   const std::vector<DetectedObjectWithFeature> & image_rois,
   const std::map<std::size_t, DetectedObjectWithFeature> & object_roi_map)
 {
-  std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  //std::unique_ptr<ScopedTimeTrack> st_ptr;
+  //if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   int64_t timestamp_nsec =
     input_object_msg.header.stamp.sec * (int64_t)1e9 + input_object_msg.header.stamp.nanosec;

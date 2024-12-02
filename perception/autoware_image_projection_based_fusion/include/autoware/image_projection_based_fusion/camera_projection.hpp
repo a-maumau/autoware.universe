@@ -32,6 +32,11 @@
 
 namespace autoware::image_projection_based_fusion
 {
+struct PixelPos
+{
+  float x;
+  float y;
+};
 
 class CameraProjection
 {
@@ -59,13 +64,20 @@ protected:
   float grid_size_;
   float half_grid_size_;
   float inv_grid_size_;
+  uint32_t grid_width_;
+  uint32_t grid_height_;
+  float index_grid_out_h_;
+  float index_grid_out_w_;
+
   bool unrectify_;
   bool use_approximation_;
 
-  std::shared_ptr<autoware::universe_utils::LRUCache<float, Eigen::Vector2d>> projection_cache_;
+  //std::shared_ptr<autoware::universe_utils::LRUCache<float, Eigen::Vector2d>> projection_cache_;
+  //std::unique_ptr<Eigen::Vector2d[]> projection_cache_;
+  std::unique_ptr<PixelPos[]> projection_cache_;
   image_geometry::PinholeCameraModel camera_model_;
 };
 
 }  // namespace autoware::image_projection_based_fusion
 
-#endif  // AUTOWARE__IMAGE_PROJECTION_BASED_FUSION__ROI_CLUSTER_FUSION__NODE_HPP_
+#endif  // AUTOWARE__IMAGE_PROJECTION_BASED_FUSION__CAMERA_PROJECTION_HPP_

@@ -97,7 +97,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info, DetectedObjectsWithFeature & output_cluster_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   // get transform from cluster frame id to camera optical frame id
   geometry_msgs::msg::TransformStamped transform_stamped;
@@ -141,7 +141,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
 
     { // timekeeper scope starts
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calcRawImageProjectedPoint", *time_keeper_);
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calcRawImageProjectedPoint", *time_keeper_);
 
     for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(transformed_cluster, "x"),
          iter_y(transformed_cluster, "y"), iter_z(transformed_cluster, "z");
@@ -179,7 +179,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
 
   { // timekeeper scope starts
   std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-  if (time_keeper_) inner_st_ptr = std::make_unique<ScopedTimeTrack>("compare roi", *time_keeper_);
+  if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("compare roi", *time_keeper_);
 
   // sort the clusters by their x-values to search for the max IoU efficiently
   std::sort(m_cluster_roi.begin(), m_cluster_roi.end(),
