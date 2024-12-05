@@ -43,37 +43,38 @@ class CameraProjection
 public:
   explicit CameraProjection(
     const sensor_msgs::msg::CameraInfo & camera_info,
-    const float grid_size,
+    const float grid_width, const float grid_height,
     const bool unrectify,
     const bool use_approximation
   );
-  CameraProjection(): grid_size_(1.0), unrectify_(false) {};
+  CameraProjection(): grid_w_size_(1.0), grid_h_size_(1.0), unrectify_(false) {};
   bool calcRawImageProjectedPoint(const cv::Point3d & point3d, Eigen::Vector2d & projected_point);
   sensor_msgs::msg::CameraInfo getCameraInfo();
-  bool isOutsideHorizontalView(float px, float pz);
-  bool isOutsideVerticalView(float py, float pz);
+  bool isOutsideHorizontalView(const float px, const float pz);
+  bool isOutsideVerticalView(const float py, const float pz);
 
 protected:
   void initializeCache();
 
   sensor_msgs::msg::CameraInfo camera_info_;
-  uint32_t image_height_, image_width_;
+  uint32_t image_h_, image_w_;
   double tan_h_x_, tan_h_y_;
 
   uint32_t cache_size_;
-  float grid_size_;
-  float half_grid_size_;
-  float inv_grid_size_;
-  uint32_t grid_width_;
-  uint32_t grid_height_;
+  float grid_w_size_;
+  float grid_h_size_;
+  float half_grid_w_size_;
+  float half_grid_h_size_;
+  float inv_grid_w_size_;
+  float inv_grid_h_size_;
+  uint32_t grid_x_num_;
+  uint32_t grid_y_num_;
   float index_grid_out_h_;
   float index_grid_out_w_;
 
   bool unrectify_;
   bool use_approximation_;
 
-  //std::shared_ptr<autoware::universe_utils::LRUCache<float, Eigen::Vector2d>> projection_cache_;
-  //std::unique_ptr<Eigen::Vector2d[]> projection_cache_;
   std::unique_ptr<PixelPos[]> projection_cache_;
   image_geometry::PinholeCameraModel camera_model_;
 };

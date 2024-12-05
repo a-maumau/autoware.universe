@@ -170,10 +170,13 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
       if (camera_projectors_[image_id].calcRawImageProjectedPoint(
         cv::Point3d(point.x(), point.y(), point.z()), proj_point
       )){
-        min_x = std::min(proj_point.x(), min_x);
-        min_y = std::min(proj_point.y(), min_y);
-        max_x = std::max(proj_point.x(), max_x);
-        max_y = std::max(proj_point.y(), max_y);
+        const double px = proj_point.x();
+        const double py = proj_point.y();
+
+        min_x = std::min(px, min_x);
+        min_y = std::min(py, min_y);
+        max_x = std::max(px, max_x);
+        max_y = std::max(py, max_y);
 
         point_on_image_cnt++;
 

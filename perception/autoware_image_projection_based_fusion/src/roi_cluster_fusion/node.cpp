@@ -192,6 +192,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
     double max_iou = 0.0;
     auto image_roi = feature_obj.feature.roi;
     const unsigned int image_roi_right_side_x = image_roi.x_offset+image_roi.width;
+    const unsigned int image_roi_bottom_side_y = image_roi.y_offset+image_roi.height;
     const bool is_roi_label_known =
       feature_obj.object.classification.front().label != ObjectClassification::UNKNOWN;
 
@@ -216,9 +217,9 @@ void RoiClusterFusionNode::fuseOnSingleImage(
         associated = true;
       }
 
-      // if the cluster ROI is at least outside and to the right of the sorted ROIs,
-      // there is no chance of having a larger IoU
-      if (cluster_roi.x_offset > image_roi_right_side_x){
+      // If the cluster ROI is to the right of the sorted ROIs and below them,
+      // there is no chance of achieving a larger IoU
+      if (cluster_roi.x_offset > image_roi_right_side_x && cluster_roi.y_offset > image_roi_bottom_side_y){
         break;
       }
     }

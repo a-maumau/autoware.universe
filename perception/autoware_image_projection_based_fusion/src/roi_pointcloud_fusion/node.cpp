@@ -194,10 +194,13 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
           static_cast<size_t>(max_cluster_size_) * static_cast<size_t>(point_step)) {
           continue;
         }
+
+        const double px = projected_point.x();
+        const double py = projected_point.y();
         if (
-          check_roi.x_offset <= projected_point.x() && check_roi.y_offset <= projected_point.y() &&
-          check_roi.x_offset + check_roi.width >= projected_point.x() &&
-          check_roi.y_offset + check_roi.height >= projected_point.y()) {
+          check_roi.x_offset <= px && check_roi.y_offset <= py &&
+          check_roi.x_offset + check_roi.width >= px &&
+          check_roi.y_offset + check_roi.height >= py) {
           std::memcpy(
             &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
           clusters_data_size.at(i) += point_step;

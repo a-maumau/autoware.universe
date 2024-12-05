@@ -60,14 +60,16 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
   }
 
   // Set parameters
-  approximate_projection_ = declare_parameter<bool>("approximate_projection");
-  approximation_grid_size_ = declare_parameter<float>("approximation_grid_size");
+  approx_projection_ = declare_parameter<bool>("approximate_projection");
+  approx_grid_w_size_ = declare_parameter<float>("approximation_grid_width_size");
+  approx_grid_h_size_ = declare_parameter<float>("approximation_grid_height_size");
   match_threshold_ms_ = declare_parameter<double>("match_threshold_ms");
   timeout_ms_ = declare_parameter<double>("timeout_ms");
 
   input_rois_topics_.resize(rois_number_);
   input_camera_topics_.resize(rois_number_);
   input_camera_info_topics_.resize(rois_number_);
+  camera_projectors_.resize(rois_number_);
 
   for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
     input_rois_topics_.at(roi_i) = declare_parameter<std::string>(
@@ -90,7 +92,6 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
 
   // sub camera info
   camera_info_subs_.resize(rois_number_);
-  camera_projectors_.resize(rois_number_);
   for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
     std::function<void(const sensor_msgs::msg::CameraInfo::ConstSharedPtr msg)> fnc =
       std::bind(&FusionNode::cameraInfoCallback, this, std::placeholders::_1, roi_i);
@@ -161,8 +162,8 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::cameraInfoCallback(
   // assuming the camera info does not change while the node is running
   if(camera_info_map_.find(camera_id) == camera_info_map_.end() && checkCameraInfo(*input_camera_info_msg)){
     camera_projectors_.at(camera_id) =
-      CameraProjection(*input_camera_info_msg, approximation_grid_size_,
-        point_project_to_unrectified_image_, approximate_projection_);
+      CameraProjection(*input_camera_info_msg, approx_grid_w_size_, approx_grid_h_size_,
+        point_project_to_unrectified_image_, approx_projection_);
     camera_info_map_[camera_id] = *input_camera_info_msg;
   }
 }

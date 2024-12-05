@@ -108,8 +108,9 @@ protected:
   std::vector<autoware::image_projection_based_fusion::CameraProjection> camera_projectors_;
 
   rclcpp::TimerBase::SharedPtr timer_;
-  bool approximate_projection_;
-  float approximation_grid_size_;
+  bool approx_projection_;
+  float approx_grid_w_size_;
+  float approx_grid_h_size_;
   double timeout_ms_{};
   double match_threshold_ms_{};
   std::vector<std::string> input_rois_topics_;

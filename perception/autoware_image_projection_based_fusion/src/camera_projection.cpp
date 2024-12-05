@@ -28,29 +28,32 @@
 namespace autoware::image_projection_based_fusion
 {
 CameraProjection::CameraProjection(
-  const sensor_msgs::msg::CameraInfo & camera_info, const float grid_size, const bool unrectify, const bool use_approximation=false
-): camera_info_(camera_info), grid_size_(grid_size), unrectify_(unrectify), use_approximation_(use_approximation){
-  if (grid_size_ <= 0.0) {
-    throw std::runtime_error("grid_size must be > 0.0");
+  const sensor_msgs::msg::CameraInfo & camera_info, const float grid_width, const float grid_height,
+  const bool unrectify, const bool use_approximation=false
+): camera_info_(camera_info), grid_w_size_(grid_width), grid_h_size_(grid_height), unrectify_(unrectify), use_approximation_(use_approximation){
+  if (grid_w_size_ <= 0.0 || grid_h_size_ <= 0.0) {
+    throw std::runtime_error("Both grid_width and grid_height must be > 0.0");
   }
 
-  image_height_ = camera_info_.height;
-  image_width_ = camera_info_.width;
+  image_w_ = camera_info_.width;
+  image_h_ = camera_info_.height;
 
   // prepare camera model
   camera_model_.fromCameraInfo(camera_info);
 
   // cache settings
-  half_grid_size_ = grid_size_ / 2.0; // for shifting to the grid center
-  inv_grid_size_ = 1/grid_size_;
-  grid_width_ = static_cast<uint32_t>(std::ceil(image_width_ / grid_size_));
-  grid_height_ = static_cast<uint32_t>(std::ceil(image_height_ / grid_size_));
-  //cache_size_ = std::round(image_height_/grid_size_)*std::round(image_width_/grid_size_);
-  cache_size_ = grid_width_*grid_height_;
+  // for shifting to the grid center
+  half_grid_w_size_ = grid_w_size_ / 2.0;
+  half_grid_h_size_ = grid_h_size_ / 2.0;
+  inv_grid_w_size_ = 1/grid_w_size_;
+  inv_grid_h_size_ = 1/grid_h_size_;
+  grid_x_num_ = static_cast<uint32_t>(std::ceil(image_w_ / grid_w_size_));
+  grid_y_num_ = static_cast<uint32_t>(std::ceil(image_h_ / grid_h_size_));
+  cache_size_ = grid_x_num_*grid_y_num_;
 
   // precompute the grid that get outside of the image
-  index_grid_out_h_ = image_height_-half_grid_size_;
-  index_grid_out_w_ = image_width_-half_grid_size_;
+  index_grid_out_h_ = image_h_ - half_grid_w_size_;
+  index_grid_out_w_ = image_w_ - half_grid_h_size_;
 
   // for checking the views
   // cx/fx
@@ -60,11 +63,7 @@ CameraProjection::CameraProjection(
 
   if (use_approximation_) {
     // create the cache with size of grid center
-    //projection_cache_ =
-    //  std::make_shared<autoware::universe_utils::LRUCache<float, Eigen::Vector2d>>(cache_size_);
-    //projection_cache_ = std::array<Eigen::Vector2d, cache_size_>
-    //projection_cache_ = std::make_unique<Eigen::Vector2d[]>(cache_size_);
-    // store only xy position to refuce memory consumption
+    // store only xy position to reduce memory consumption
     projection_cache_ = std::make_unique<PixelPos[]>(cache_size_);
     initializeCache();
   }
@@ -89,38 +88,26 @@ void CameraProjection::initializeCache(){
   //
   // each pixel will be rounded in this grid center
 
-  for (float y = 0.0; y < index_grid_out_h_; y += grid_size_) {
-    for (float x = 0.0; x < index_grid_out_w_; x += grid_size_) {
-  //for (int y = 0; y < image_height_; y++) {
-  //  for (int x = 0; x < image_width_; x++) {
-      // round to a near grid center
-      //const int qx = static_cast<uint32_t>((x-half_grid_size_)/grid_size_)*grid_size_+half_grid_size_;
-      //const int qy = static_cast<uint32_t>((y-half_grid_size_)/grid_size_)*grid_size_+half_grid_size_;
-      //const int cache_key = static_cast<uint32_t>(qx+qy*image_width_);
-      const float qx = std::round(x*inv_grid_size_)*grid_size_+half_grid_size_;
-      const float qy = std::round(y*inv_grid_size_)*grid_size_+half_grid_size_;
+  for (float y = 0.0; y < index_grid_out_h_; y += grid_h_size_) {
+    for (float x = 0.0; x < index_grid_out_w_; x += grid_w_size_) {
+      const float qx = std::round(x*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
+      const float qy = std::round(y*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
 
       // std::floor is for making the index start from 0
-      const int grid_x = static_cast<int>(std::floor(qx / grid_size_));
-      const int grid_y = static_cast<int>(std::floor(qy / grid_size_));
-      const int index = (grid_y) * grid_width_ + grid_x;
-      //const float cache_key = (qx+qy*image_width_);
-      //std::cout << cache_key << std::endl;
+      const int grid_x = static_cast<int>(std::floor(qx / grid_w_size_));
+      const int grid_y = static_cast<int>(std::floor(qy / grid_h_size_));
+      const int index = (grid_y) * grid_x_num_ + grid_x;
 
       // precompute projected point
       cv::Point2d raw_image_point = camera_model_.unrectifyPoint(cv::Point2d(qx, qy));
-      //Eigen::Vector2d projection_point(raw_image_point.x, raw_image_point.y);
-
-      //projection_cache_->put(cache_key, projection_point);
-      //projection_cache_[index] = projection_point;
       projection_cache_[index] = PixelPos{static_cast<float>(raw_image_point.x), static_cast<float>(raw_image_point.y)};
     }
   }
 }
 
 /**
- * @brief calculate a projection of 3D point to image plane 2D point. 
- * @return return the projected points that is on the image plane or not.
+ * @brief Calculate a projection of 3D point to image plane 2D point. 
+ * @return Return a boolean indicating whether the projected point is on the image plane.
  */
 bool CameraProjection::calcRawImageProjectedPoint(
   const cv::Point3d & point3d, Eigen::Vector2d & projected_point
@@ -128,7 +115,7 @@ bool CameraProjection::calcRawImageProjectedPoint(
   const cv::Point2d rectified_image_point = camera_model_.project3dToPixel(point3d);
 
   if (!unrectify_) {
-    if (rectified_image_point.x < 0.0 || rectified_image_point.x >= image_width_ || rectified_image_point.y < 0.0 || rectified_image_point.y >= image_height_){
+    if (rectified_image_point.x < 0.0 || rectified_image_point.x >= image_w_ || rectified_image_point.y < 0.0 || rectified_image_point.y >= image_h_){
       return false;
     } else {
       projected_point << rectified_image_point.x, rectified_image_point.y;
@@ -138,49 +125,25 @@ bool CameraProjection::calcRawImageProjectedPoint(
 
   if(use_approximation_) {
     // round to a near grid center
-    /*
-    const float qx = std::round(rectified_image_point.x*inv_grid_size_)*grid_size_+half_grid_size_;
-    if (qx < 0.0 || qx >= image_width_) {
-      return false;
-    }
-
-    const float qy = std::round(rectified_image_point.y*inv_grid_size_)*grid_size_+half_grid_size_;
-    if (qy < 0.0 || qy >= image_height_) {
-      return false;
-    }
-
-    const float cache_key = (qx+qy*image_width_);
-    */
-    const float qx = std::round(rectified_image_point.x*inv_grid_size_)*grid_size_+half_grid_size_;
+    const float qx = std::round(rectified_image_point.x*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
     if (qx < 0.0 || qx >= index_grid_out_w_) {
       return false;
     }
-
-    const float qy = std::round(rectified_image_point.y*inv_grid_size_)*grid_size_+half_grid_size_;
+    const float qy = std::round(rectified_image_point.y*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
     if (qy < 0.0 || qy >= index_grid_out_h_) {
       return false;
     }
 
-    const int grid_x = static_cast<int>(std::floor(qx / grid_size_));
-    const int grid_y = static_cast<int>(std::floor(qy / grid_size_));
-    const int index = grid_y * grid_width_ + grid_x;
+    const int grid_x = static_cast<int>(std::floor(qx / grid_w_size_));
+    const int grid_y = static_cast<int>(std::floor(qy / grid_h_size_));
+    const int index = grid_y * grid_x_num_ + grid_x;
 
-    // if rounded position is already in the cache, then use it as an approximation
-    /*
-    if (projection_cache_->contains(cache_key)) {
-      projected_point = *projection_cache_->get(cache_key);
-      return true;
-    } else {
-      // if cache misses, consider as a invalid position
-      return false;
-    }
-    */
     projected_point << projection_cache_[index].x, projection_cache_[index].y;
 
     return true;
   } else {
     const cv::Point2d raw_image_point = camera_model_.unrectifyPoint(rectified_image_point);
-    if (rectified_image_point.x < 0.0 || rectified_image_point.x >= image_width_ || rectified_image_point.y < 0.0 || rectified_image_point.y >= image_height_){
+    if (rectified_image_point.x < 0.0 || rectified_image_point.x >= image_w_ || rectified_image_point.y < 0.0 || rectified_image_point.y >= image_h_){
       return false;
     } else {
       projected_point << raw_image_point.x, raw_image_point.y;
@@ -193,12 +156,12 @@ sensor_msgs::msg::CameraInfo CameraProjection::getCameraInfo(){
   return camera_info_;
 }
 
-bool CameraProjection::isOutsideHorizontalView(float px, float pz){
+bool CameraProjection::isOutsideHorizontalView(const float px, const float pz){
   // assuming the points' origin is centered on the camera
   return pz <= 0.0 || px > tan_h_x_ * pz || px < -tan_h_x_ * pz;
 }
 
-bool CameraProjection::isOutsideVerticalView(float py, float pz){
+bool CameraProjection::isOutsideVerticalView(const float py, const float pz){
   // assuming the points' origin is centered on the camera
   return pz <= 0.0 || py > tan_h_y_ * pz || py < -tan_h_y_ * pz;
 }
