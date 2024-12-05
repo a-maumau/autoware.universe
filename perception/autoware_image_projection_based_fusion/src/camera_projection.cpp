@@ -51,10 +51,6 @@ CameraProjection::CameraProjection(
   grid_y_num_ = static_cast<uint32_t>(std::ceil(image_h_ / grid_h_size_));
   cache_size_ = grid_x_num_*grid_y_num_;
 
-  // precompute the grid that get outside of the image
-  index_grid_out_h_ = image_h_ - half_grid_w_size_;
-  index_grid_out_w_ = image_w_ - half_grid_h_size_;
-
   // for checking the views
   // cx/fx
   tan_h_x_ = camera_info.k.at(2)/camera_info.k.at(0);
@@ -70,9 +66,7 @@ CameraProjection::CameraProjection(
 }
 
 void CameraProjection::initializeCache(){
-  // sample all pixel values till the camera height, width
-  // TODO:
-  //   consider the rectfied image coordinate
+  // sample grid centers till the camera height, width to precompute the projection
   //
   //      grid_size
   //      /
@@ -87,11 +81,12 @@ void CameraProjection::initializeCache(){
   //   v grid center
   //
   // each pixel will be rounded in this grid center
+  // edge pixels in the image will be assign to centers that is the outside of the image
 
-  for (float y = 0.0; y < index_grid_out_h_; y += grid_h_size_) {
-    for (float x = 0.0; x < index_grid_out_w_; x += grid_w_size_) {
-      const float qx = std::round(x*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
-      const float qy = std::round(y*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
+  for (float y = half_grid_h_size_; y < image_h_; y += grid_h_size_) {
+    for (float x = half_grid_w_size_; x < image_w_; x += grid_w_size_) {
+      const float qx = std::round((x-half_grid_w_size_)*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
+      const float qy = std::round((y-half_grid_h_size_)*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
 
       // std::floor is for making the index start from 0
       const int grid_x = static_cast<int>(std::floor(qx / grid_w_size_));
@@ -125,12 +120,12 @@ bool CameraProjection::calcRawImageProjectedPoint(
 
   if(use_approximation_) {
     // round to a near grid center
-    const float qx = std::round(rectified_image_point.x*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
-    if (qx < 0.0 || qx >= index_grid_out_w_) {
+    const float qx = std::round((rectified_image_point.x-half_grid_w_size_)*inv_grid_w_size_)*grid_w_size_+half_grid_w_size_;
+    if (qx < 0.0 || qx >= image_w_) {
       return false;
     }
-    const float qy = std::round(rectified_image_point.y*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
-    if (qy < 0.0 || qy >= index_grid_out_h_) {
+    const float qy = std::round((rectified_image_point.y-half_grid_h_size_)*inv_grid_h_size_)*grid_h_size_+half_grid_h_size_;
+    if (qy < 0.0 || qy >= image_h_) {
       return false;
     }
 

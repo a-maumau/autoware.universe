@@ -60,9 +60,6 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
   }
 
   // Set parameters
-  approx_projection_ = declare_parameter<bool>("approximate_projection");
-  approx_grid_w_size_ = declare_parameter<float>("approximation_grid_width_size");
-  approx_grid_h_size_ = declare_parameter<float>("approximation_grid_height_size");
   match_threshold_ms_ = declare_parameter<double>("match_threshold_ms");
   timeout_ms_ = declare_parameter<double>("timeout_ms");
 
@@ -125,6 +122,40 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
   timer_ = rclcpp::create_timer(
     this, get_clock(), period_ns, std::bind(&FusionNode::timer_callback, this));
 
+  point_project_to_unrectified_image_ =
+    declare_parameter<std::vector<bool>>("point_project_to_unrectified_image");
+  if (rois_number_ != point_project_to_unrectified_image_.size()) {
+    const std::size_t current_size = point_project_to_unrectified_image_.size();
+    RCLCPP_WARN(
+      this->get_logger(),
+      "The number of elements in point_project_to_unrectified_image should be the same as in "
+      "rois_number. It has %zu elements.", current_size);
+    if (current_size < rois_number_){
+      point_project_to_unrectified_image_.resize(rois_number_);
+      for (std::size_t i = current_size; i < rois_number_; i++) {
+        point_project_to_unrectified_image_.at(i) = false;
+      }
+    }
+  }
+
+  // camera projection cache settings
+  approx_camera_projection_ = declare_parameter<std::vector<bool>>("approximate_camera_projection");
+  if (rois_number_ != approx_camera_projection_.size()) {
+    const std::size_t current_size = approx_camera_projection_.size();
+    RCLCPP_WARN(
+      this->get_logger(),
+      "The number of elements in approximate_projection should be the same as in rois_number. "
+      "It has %zu elements.", current_size);
+    if (current_size < rois_number_){
+      approx_camera_projection_.resize(rois_number_);
+      for (std::size_t i = current_size; i < rois_number_; i++) {
+        approx_camera_projection_.at(i) = true;
+      }
+    }
+  }
+  approx_grid_w_size_ = declare_parameter<float>("approximation_grid_width_size");
+  approx_grid_h_size_ = declare_parameter<float>("approximation_grid_height_size");
+
   // debugger
   if (declare_parameter("debug_mode", true)) {
     std::size_t image_buffer_size =
@@ -132,8 +163,6 @@ FusionNode<TargetMsg3D, ObjType, Msg2D>::FusionNode(
     debugger_ =
       std::make_shared<Debugger>(this, rois_number_, image_buffer_size, input_camera_topics_);
   }
-  point_project_to_unrectified_image_ =
-    declare_parameter<bool>("point_project_to_unrectified_image");
 
   // initialize debug tool
   {
@@ -163,7 +192,7 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::cameraInfoCallback(
   if(camera_info_map_.find(camera_id) == camera_info_map_.end() && checkCameraInfo(*input_camera_info_msg)){
     camera_projectors_.at(camera_id) =
       CameraProjection(*input_camera_info_msg, approx_grid_w_size_, approx_grid_h_size_,
-        point_project_to_unrectified_image_, approx_projection_);
+        point_project_to_unrectified_image_.at(camera_id), approx_camera_projection_.at(camera_id));
     camera_info_map_[camera_id] = *input_camera_info_msg;
   }
 }

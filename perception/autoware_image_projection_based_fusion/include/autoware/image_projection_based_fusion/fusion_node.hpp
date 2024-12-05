@@ -100,7 +100,7 @@ protected:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
-  bool point_project_to_unrectified_image_{false};
+  std::vector<bool> point_project_to_unrectified_image_{false};
 
   // camera_info
   std::map<std::size_t, sensor_msgs::msg::CameraInfo> camera_info_map_;
@@ -108,7 +108,7 @@ protected:
   std::vector<autoware::image_projection_based_fusion::CameraProjection> camera_projectors_;
 
   rclcpp::TimerBase::SharedPtr timer_;
-  bool approx_projection_;
+  std::vector<bool> approx_camera_projection_;
   float approx_grid_w_size_;
   float approx_grid_h_size_;
   double timeout_ms_{};

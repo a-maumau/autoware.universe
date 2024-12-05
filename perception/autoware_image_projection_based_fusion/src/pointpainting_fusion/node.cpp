@@ -259,7 +259,7 @@ void PointPaintingFusionNode::preprocess(sensor_msgs::msg::PointCloud2 & painted
 
 void PointPaintingFusionNode::fuseOnSingleImage(
   __attribute__((unused)) const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg,
-  __attribute__((unused)) const std::size_t image_id,
+  std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
   __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)

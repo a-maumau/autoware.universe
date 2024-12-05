@@ -89,7 +89,7 @@ void SegmentPointCloudFusionNode::postprocess(PointCloud2 & pointcloud_msg)
 
 void SegmentPointCloudFusionNode::fuseOnSingleImage(
   const PointCloud2 & input_pointcloud_msg, __attribute__((unused)) const std::size_t image_id,
-  [[maybe_unused]] const Image & input_mask, __attribute__((unused)) const CameraInfo & camera_info,
+  [[maybe_unused]] const Image & input_mask, const CameraInfo & camera_info,
   __attribute__((unused)) PointCloud2 & output_cloud)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -148,14 +148,6 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
     if (transformed_z <= 0.0 || transformed_z > filter_distance_threshold_) {
       continue;
     }
-
-    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-    //  pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-    //  point_project_to_unrectified_image_);
-    //Eigen::Vector2d projected_point = calcRawImageProjectedPoint_approximation(
-    //    pinhole_camera_model, cv::Point3d(transformed_x, transformed_y, transformed_z),
-    //    lidar_to_camera_caches_[image_id], grid_size_, half_grid_size_, camera_info.width,
-    //    point_project_to_unrectified_image_);
 
     Eigen::Vector2d projected_point;
     if (!camera_projectors_[image_id].calcRawImageProjectedPoint(

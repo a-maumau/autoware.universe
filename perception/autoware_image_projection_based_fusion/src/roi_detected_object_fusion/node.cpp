@@ -84,13 +84,11 @@ void RoiDetectedObjectFusionNode::preprocess(DetectedObjects & output_msg)
 void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   const DetectedObjects & input_object_msg, const std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  const sensor_msgs::msg::CameraInfo & camera_info,
+  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   DetectedObjects & output_object_msg __attribute__((unused)))
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
   if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
-
-  if (!checkCameraInfo(camera_info)) return;
 
   Eigen::Affine3d object2camera_affine;
   {
@@ -103,12 +101,8 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
     object2camera_affine = transformToEigen(transform_stamped_optional.value().transform);
   }
 
-  image_geometry::PinholeCameraModel pinhole_camera_model;
-  pinhole_camera_model.fromCameraInfo(camera_info);
-
   const auto object_roi_map = generateDetectedObjectRoIs(
-    input_object_msg, image_id, static_cast<double>(camera_info.width),
-    static_cast<double>(camera_info.height), object2camera_affine, pinhole_camera_model);
+    input_object_msg, image_id, object2camera_affine);
   fuseObjectsOnImage(input_object_msg, input_roi_msg.feature_objects, object_roi_map);
 
   if (debugger_) {
@@ -122,9 +116,8 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
 
 std::map<std::size_t, DetectedObjectWithFeature>
 RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
-  const DetectedObjects & input_object_msg, const std::size_t image_id, __attribute__((unused)) const double image_width, __attribute__((unused)) const double image_height,
-  const Eigen::Affine3d & object2camera_affine,
-  __attribute__((unused)) const image_geometry::PinholeCameraModel & pinhole_camera_model)
+  const DetectedObjects & input_object_msg, const std::size_t image_id,
+  const Eigen::Affine3d & object2camera_affine)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
   if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
