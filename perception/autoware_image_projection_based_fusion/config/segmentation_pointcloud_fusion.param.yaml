@@ -25,3 +25,6 @@
 
     # Avoid using debug mask in case of multiple camera semantic segmentation fusion
     is_publish_debug_mask: false
+
+    # debug parameters
+    publish_processing_time_detail: false

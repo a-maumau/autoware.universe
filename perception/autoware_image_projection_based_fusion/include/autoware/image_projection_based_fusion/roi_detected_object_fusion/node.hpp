@@ -19,6 +19,7 @@
 #include "autoware/universe_utils/ros/debug_publisher.hpp"
 
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
+#include <autoware/universe_utils/system/time_keeper.hpp>
 
 #include "autoware_perception_msgs/msg/object_classification.hpp"
 
@@ -72,6 +73,11 @@ private:
 
   std::map<int64_t, std::vector<bool>> passthrough_object_flags_map_, fused_object_flags_map_,
     ignored_object_flags_map_;
+
+  // timekeeper
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
 };
 
 }  // namespace autoware::image_projection_based_fusion

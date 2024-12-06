@@ -17,6 +17,8 @@
 
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
+#include <autoware/universe_utils/system/time_keeper.hpp>
+
 #include <map>
 #include <memory>
 #include <string>
@@ -53,6 +55,12 @@ protected:
   double fusion_distance_;
   double trust_object_distance_;
   std::string non_trust_object_iou_mode_{"iou_x"};
+
+  // timekeeper
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
+
   bool is_far_enough(const DetectedObjectWithFeature & obj, const double distance_threshold);
   bool out_of_scope(const DetectedObjectWithFeature & obj) override;
   double cal_iou_by_mode(
