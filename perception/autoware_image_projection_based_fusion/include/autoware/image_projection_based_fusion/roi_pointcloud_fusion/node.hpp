@@ -18,9 +18,12 @@
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
+#include <autoware/universe_utils/system/time_keeper.hpp>
 
+#include <memory>
 #include <string>
 #include <vector>
+
 namespace autoware::image_projection_based_fusion
 {
 class RoiPointCloudFusionNode
@@ -35,6 +38,11 @@ private:
   rclcpp::Publisher<DetectedObjectsWithFeature>::SharedPtr pub_objects_ptr_;
   std::vector<DetectedObjectWithFeature> output_fused_objects_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cluster_debug_pub_;
+
+  // timekeeper
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
 
   /* data */
 public:
