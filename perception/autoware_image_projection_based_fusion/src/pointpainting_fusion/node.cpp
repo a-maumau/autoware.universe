@@ -290,7 +290,6 @@ void PointPaintingFusionNode::fuseOnSingleImage(
 
   if (!checkCameraInfo(camera_info)) return;
 
-  std::vector<sensor_msgs::msg::RegionOfInterest> debug_image_rois;
   std::vector<Eigen::Vector2d> debug_image_points;
 
   // get transform from cluster frame id to camera optical frame id
@@ -338,7 +337,19 @@ dc   | dc dc dc  dc ||zc|
                      |dc|
    **/
 
-  auto objects = input_roi_msg.feature_objects;
+  std::vector<FeatureobjectAndROIInfo> feature_object_with_roi_info;
+  for (const auto & feature_object : input_roi_msg.feature_objects) {
+    feature_object_with_roi_info.push_back(FeatureobjectAndROIInfo{
+      &feature_object, feature_object.feature.roi.x_offset + feature_object.feature.roi.width,
+      feature_object.object.classification.front().label});
+  }
+  // sort the ROI by their x-values to search efficiently
+  std::sort(
+    feature_object_with_roi_info.begin(), feature_object_with_roi_info.end(),
+    [](const auto & a, const auto & b) {
+      return a.feature_obj->feature.roi.x_offset < b.feature_obj->feature.roi.x_offset;
+    });
+
   int iterations = painted_pointcloud_msg.data.size() / painted_pointcloud_msg.point_step;
 
   {  // iterate points and calculate camera projections
@@ -372,13 +383,32 @@ dc   | dc dc dc  dc ||zc|
       Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
         pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
 
+      const double px = projected_point.x();
+      const double py = projected_point.y();
+
+#if 0
+      // Parallelizing loop don't support push_back
+      if (debugger_) {
+        debug_image_points.push_back(projected_point);
+      }
+#endif
+
+      // filter the points in the left side of most left located ROI
+      // since this filter is assuming on the image plane (pixel coodinate)
+      // if isInsideBbox's zc is not 1.0, this will break the logic
+      if (
+        feature_object_with_roi_info.size() > 0 &&
+        px < feature_object_with_roi_info[0].feature_obj->feature.roi.x_offset) {
+        continue;
+      }
+
       // iterate 2d bbox
-      for (const auto & feature_object : objects) {
+      for (const auto & obj : feature_object_with_roi_info) {
+        const DetectedObjectWithFeature & feature_object = *obj.feature_obj;
         sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
         // paint current point if it is inside bbox
-        int label2d = feature_object.object.classification.front().label;
-        if (
-          !isUnknown(label2d) && isInsideBbox(projected_point.x(), projected_point.y(), roi, 1.0)) {
+        const int label2d = obj.label;
+        if (!isUnknown(label2d) && isInsideBbox(px, py, roi, 1.0)) {
           // cppcheck-suppress invalidPointerCast
           auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
           for (const auto & cls : isClassTable_) {
@@ -386,24 +416,26 @@ dc   | dc dc dc  dc ||zc|
             *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
           }
         }
-#if 0
-        // Parallelizing loop don't support push_back
-        if (debugger_) {
-          debug_image_points.push_back(projected_point);
+        // if the projected_point is in the right side of the ROI,
+        // we don't need to search more than this ROI bbox
+        // since it is assuming on the image plane (pixel coodinate)
+        // if isInsideBbox's zc is not 1.0, this will break the logic
+        if (px > obj.roi_right_side_x) {
+          break;
         }
-#endif
       }
     }
-  }
-
-  for (const auto & feature_object : input_roi_msg.feature_objects) {
-    debug_image_rois.push_back(feature_object.feature.roi);
   }
 
   if (debugger_) {
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
     if (time_keeper_)
       inner_st_ptr = std::make_unique<ScopedTimeTrack>("publish debug message", *time_keeper_);
+
+    std::vector<sensor_msgs::msg::RegionOfInterest> debug_image_rois;
+    for (const auto & feature_object : input_roi_msg.feature_objects) {
+      debug_image_rois.push_back(feature_object.feature.roi);
+    }
 
     debugger_->image_rois_ = debug_image_rois;
     debugger_->obstacle_points_ = debug_image_points;
