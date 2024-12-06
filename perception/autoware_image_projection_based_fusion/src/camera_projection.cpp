@@ -59,7 +59,7 @@ CameraProjection::CameraProjection(
 
   if (use_approximation_) {
     // create the cache with size of grid center
-    // store only xy position to reduce memory consumption
+    // store only xy position in float to reduce memory consumption
     projection_cache_ = std::make_unique<PixelPos[]>(cache_size_);
     initializeCache();
   }

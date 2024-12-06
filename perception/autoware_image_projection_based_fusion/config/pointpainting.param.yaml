@@ -20,3 +20,6 @@
     omp_params:
       # omp params
       num_threads: 1
+
+    # debug parameters
+    publish_processing_time_detail: true

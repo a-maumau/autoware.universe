@@ -4,3 +4,6 @@
     min_cluster_size: 2
     max_cluster_size: 20
     cluster_2d_tolerance: 0.5
+
+    # debug parameters
+    publish_processing_time_detail: true

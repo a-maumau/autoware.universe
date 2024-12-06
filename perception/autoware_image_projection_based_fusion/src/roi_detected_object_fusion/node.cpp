@@ -43,7 +43,7 @@ RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptio
   }
 
   // time keeper
-  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
       detailed_processing_time_publisher_ =
         this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
@@ -84,7 +84,6 @@ void RoiDetectedObjectFusionNode::preprocess(DetectedObjects & output_msg)
 void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   const DetectedObjects & input_object_msg, const std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   DetectedObjects & output_object_msg __attribute__((unused)))
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -92,6 +91,9 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
 
   Eigen::Affine3d object2camera_affine;
   {
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate affine transform", *time_keeper_);
+
     const auto transform_stamped_optional = getTransformStamped(
       tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
       /*source*/ input_object_msg.header.frame_id, input_roi_msg.header.stamp);
@@ -205,8 +207,8 @@ void RoiDetectedObjectFusionNode::fuseObjectsOnImage(
   const std::vector<DetectedObjectWithFeature> & image_rois,
   const std::map<std::size_t, DetectedObjectWithFeature> & object_roi_map)
 {
-  //std::unique_ptr<ScopedTimeTrack> st_ptr;
-  //if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   int64_t timestamp_nsec =
     input_object_msg.header.stamp.sec * (int64_t)1e9 + input_object_msg.header.stamp.nanosec;

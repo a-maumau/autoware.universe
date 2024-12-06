@@ -17,3 +17,6 @@
        0,       0,   0,     0,   0,       1,         1,       1,         # MOTORBIKE
        0,       0,   0,     0,   0,       1,         1,       1,         # BICYCLE
        0,       0,   0,     0,   0,       1,         1,       1]         # PEDESTRIAN
+
+    # debug parameters
+    publish_processing_time_detail: true

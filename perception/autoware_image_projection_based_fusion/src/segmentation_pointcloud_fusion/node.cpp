@@ -43,11 +43,11 @@ SegmentPointCloudFusionNode::SegmentPointCloudFusionNode(const rclcpp::NodeOptio
       this->get_logger(), "filter_semantic_label_target: %s %d", item.first.c_str(), item.second);
   }
 
-  is_publish_debug_mask_ = true;//declare_parameter<bool>("is_publish_debug_mask");
+  is_publish_debug_mask_ = declare_parameter<bool>("is_publish_debug_mask");
   pub_debug_mask_ptr_ = image_transport::create_publisher(this, "~/debug/mask");
 
   // time keeper
-  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
       detailed_processing_time_publisher_ =
         this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
@@ -88,9 +88,8 @@ void SegmentPointCloudFusionNode::postprocess(PointCloud2 & pointcloud_msg)
 }
 
 void SegmentPointCloudFusionNode::fuseOnSingleImage(
-  const PointCloud2 & input_pointcloud_msg, __attribute__((unused)) const std::size_t image_id,
-  [[maybe_unused]] const Image & input_mask, const CameraInfo & camera_info,
-  __attribute__((unused)) PointCloud2 & output_cloud)
+  const PointCloud2 & input_pointcloud_msg, const std::size_t image_id,
+  [[maybe_unused]] const Image & input_mask, __attribute__((unused)) PointCloud2 & output_cloud)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
   if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
@@ -101,6 +100,8 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
   if (input_mask.height == 0 || input_mask.width == 0) {
     return;
   }
+
+  const sensor_msgs::msg::CameraInfo & camera_info = camera_projectors_[image_id].getCameraInfo();
   std::vector<uint8_t> mask_data(input_mask.data.begin(), input_mask.data.end());
   cv::Mat mask = perception_utils::runLengthDecoder(mask_data, input_mask.height, input_mask.width);
 
@@ -136,36 +137,41 @@ void SegmentPointCloudFusionNode::fuseOnSingleImage(
   int y_offset = input_pointcloud_msg.fields[pcl::getFieldIndex(input_pointcloud_msg, "y")].offset;
   int z_offset = input_pointcloud_msg.fields[pcl::getFieldIndex(input_pointcloud_msg, "z")].offset;
 
-  for (size_t global_offset = 0; global_offset < transformed_cloud.data.size();
-       global_offset += point_step) {
-    float transformed_x =
-      *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + x_offset]);
-    float transformed_y =
-      *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + y_offset]);
-    float transformed_z =
-      *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + z_offset]);
-    // skip filtering pointcloud behind the camera or too far from camera
-    if (transformed_z <= 0.0 || transformed_z > filter_distance_threshold_) {
-      continue;
-    }
+  { // calculate camera projections
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
 
-    Eigen::Vector2d projected_point;
-    if (!camera_projectors_[image_id].calcRawImageProjectedPoint(
-      cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point
-    )){
-      continue;
-    }
+    for (size_t global_offset = 0; global_offset < transformed_cloud.data.size();
+         global_offset += point_step) {
+      float transformed_x =
+        *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + x_offset]);
+      float transformed_y =
+        *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + y_offset]);
+      float transformed_z =
+        *reinterpret_cast<float *>(&transformed_cloud.data[global_offset + z_offset]);
+      // skip filtering pointcloud behind the camera or too far from camera
+      if (transformed_z <= 0.0 || transformed_z > filter_distance_threshold_) {
+        continue;
+      }
 
-    // skip filtering pointcloud where semantic id out of the defined list
-    uint8_t semantic_id = mask.at<uint8_t>(
-      static_cast<uint16_t>(projected_point.y()), static_cast<uint16_t>(projected_point.x()));
-    if (
-      static_cast<size_t>(semantic_id) >= filter_semantic_label_target_list_.size() ||
-      !filter_semantic_label_target_list_.at(semantic_id).second) {
-      continue;
-    }
+      Eigen::Vector2d projected_point;
+      if (!camera_projectors_[image_id].calcRawImageProjectedPoint(
+        cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point
+      )){
+        continue;
+      }
 
-    filter_global_offset_set_.insert(global_offset);
+      // skip filtering pointcloud where semantic id out of the defined list
+      uint8_t semantic_id = mask.at<uint8_t>(
+        static_cast<uint16_t>(projected_point.y()), static_cast<uint16_t>(projected_point.x()));
+      if (
+        static_cast<size_t>(semantic_id) >= filter_semantic_label_target_list_.size() ||
+        !filter_semantic_label_target_list_.at(semantic_id).second) {
+        continue;
+      }
+
+      filter_global_offset_set_.insert(global_offset);
+    }
   }
 }
 

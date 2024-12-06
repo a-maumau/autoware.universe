@@ -46,7 +46,7 @@ protected:
   void fuseOnSingleImage(
     const DetectedObjects & input_object_msg, const std::size_t image_id,
     const DetectedObjectsWithFeature & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info, DetectedObjects & output_object_msg) override;
+    DetectedObjects & output_object_msg) override;
 
   std::map<std::size_t, DetectedObjectWithFeature> generateDetectedObjectRoIs(
     const DetectedObjects & input_object_msg, const std::size_t image_id,
@@ -74,12 +74,6 @@ private:
 
   std::map<int64_t, std::vector<bool>> passthrough_object_flags_map_, fused_object_flags_map_,
     ignored_object_flags_map_;
-
-  // caches
-  uint8_t cache_size_;
-  uint8_t grid_size_;
-  uint8_t half_grid_size_;
-  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
 
   rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
     detailed_processing_time_publisher_;

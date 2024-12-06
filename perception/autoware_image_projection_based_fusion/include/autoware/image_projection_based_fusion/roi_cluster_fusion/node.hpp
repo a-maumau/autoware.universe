@@ -17,7 +17,6 @@
 
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
-#include <autoware/universe_utils/system/lru_cache.hpp>
 #include <autoware/universe_utils/system/time_keeper.hpp>
 
 #include <map>
@@ -42,7 +41,6 @@ protected:
   void fuseOnSingleImage(
     const DetectedObjectsWithFeature & input_cluster_msg, const std::size_t image_id,
     const DetectedObjectsWithFeature & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info,
     DetectedObjectsWithFeature & output_cluster_msg) override;
 
   std::string trust_object_iou_mode_{"iou"};

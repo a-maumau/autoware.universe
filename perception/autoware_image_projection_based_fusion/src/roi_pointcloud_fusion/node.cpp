@@ -43,18 +43,8 @@ RoiPointCloudFusionNode::RoiPointCloudFusionNode(const rclcpp::NodeOptions & opt
     this->create_publisher<DetectedObjectsWithFeature>("output_clusters", rclcpp::QoS{1});
   cluster_debug_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("debug/clusters", 1);
 
-  // cache settings
-  cache_size_ = declare_parameter<int>("cache_size");
-  grid_size_ = declare_parameter<int>("grid_size");
-  half_grid_size_ = grid_size_ / 2;
-
-  // create each ROI cache
-  for (std::size_t roi_i = 0; roi_i < rois_number_; ++roi_i) {
-    lidar_to_camera_caches_.emplace_back(cache_size_);
-  }
-
   // time keeper
-  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
       detailed_processing_time_publisher_ =
         this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
@@ -98,7 +88,6 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg,
   const std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   __attribute__((unused)) sensor_msgs::msg::PointCloud2 & output_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -153,54 +142,64 @@ void RoiPointCloudFusionNode::fuseOnSingleImage(
   std::vector<sensor_msgs::msg::PointCloud2> clusters;
   std::vector<size_t> clusters_data_size;
   clusters.resize(output_objs.size());
-  for (auto & cluster : clusters) {
-    cluster.point_step = input_pointcloud_msg.point_step;
-    cluster.height = input_pointcloud_msg.height;
-    cluster.fields = input_pointcloud_msg.fields;
-    cluster.data.resize(max_cluster_size_ * input_pointcloud_msg.point_step);
-    clusters_data_size.push_back(0);
+  { // calculate camera projections
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("copy cluster", *time_keeper_);
+
+    for (auto & cluster : clusters) {
+      cluster.point_step = input_pointcloud_msg.point_step;
+      cluster.height = input_pointcloud_msg.height;
+      cluster.fields = input_pointcloud_msg.fields;
+      cluster.data.resize(max_cluster_size_ * input_pointcloud_msg.point_step);
+      clusters_data_size.push_back(0);
+    }
   }
 
   std::vector<sensor_msgs::msg::RegionOfInterest> debug_image_rois;
   std::vector<Eigen::Vector2d> debug_image_points;
 
-  for (size_t offset = 0; offset < input_pointcloud_msg.data.size(); offset += point_step) {
-    const float transformed_x =
-      *reinterpret_cast<const float *>(&transformed_cloud.data[offset + x_offset]);
-    const float transformed_y =
-      *reinterpret_cast<const float *>(&transformed_cloud.data[offset + y_offset]);
-    const float transformed_z =
-      *reinterpret_cast<const float *>(&transformed_cloud.data[offset + z_offset]);
-    if (transformed_z <= 0.0) {
-      continue;
-    }
+  { // calculate camera projections
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
 
-    Eigen::Vector2d projected_point;
-    if (camera_projectors_[image_id].calcRawImageProjectedPoint(cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point)) {
-      for (std::size_t i = 0; i < output_objs.size(); ++i) {
-        auto & feature_obj = output_objs.at(i);
-        const auto & check_roi = feature_obj.feature.roi;
-        auto & cluster = clusters.at(i);
+    for (size_t offset = 0; offset < input_pointcloud_msg.data.size(); offset += point_step) {
+      const float transformed_x =
+        *reinterpret_cast<const float *>(&transformed_cloud.data[offset + x_offset]);
+      const float transformed_y =
+        *reinterpret_cast<const float *>(&transformed_cloud.data[offset + y_offset]);
+      const float transformed_z =
+        *reinterpret_cast<const float *>(&transformed_cloud.data[offset + z_offset]);
+      if (transformed_z <= 0.0) {
+        continue;
+      }
 
-        if (
-          clusters_data_size.at(i) >=
-          static_cast<size_t>(max_cluster_size_) * static_cast<size_t>(point_step)) {
-          continue;
-        }
+      Eigen::Vector2d projected_point;
+      if (camera_projectors_[image_id].calcRawImageProjectedPoint(cv::Point3d(transformed_x, transformed_y, transformed_z), projected_point)) {
+        for (std::size_t i = 0; i < output_objs.size(); ++i) {
+          auto & feature_obj = output_objs.at(i);
+          const auto & check_roi = feature_obj.feature.roi;
+          auto & cluster = clusters.at(i);
 
-        const double px = projected_point.x();
-        const double py = projected_point.y();
-        if (
-          check_roi.x_offset <= px && check_roi.y_offset <= py &&
-          check_roi.x_offset + check_roi.width >= px &&
-          check_roi.y_offset + check_roi.height >= py) {
-          std::memcpy(
-            &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
-          clusters_data_size.at(i) += point_step;
+          if (
+            clusters_data_size.at(i) >=
+            static_cast<size_t>(max_cluster_size_) * static_cast<size_t>(point_step)) {
+            continue;
+          }
 
-          if (debugger_) {
-            debug_image_rois.push_back(check_roi);
-            debug_image_points.push_back(projected_point);
+          const double px = projected_point.x();
+          const double py = projected_point.y();
+          if (
+            check_roi.x_offset <= px && check_roi.y_offset <= py &&
+            check_roi.x_offset + check_roi.width >= px &&
+            check_roi.y_offset + check_roi.height >= py) {
+            std::memcpy(
+              &cluster.data[clusters_data_size.at(i)], &input_pointcloud_msg.data[offset], point_step);
+            clusters_data_size.at(i) += point_step;
+
+            if (debugger_) {
+              debug_image_rois.push_back(check_roi);
+              debug_image_points.push_back(projected_point);
+            }
           }
         }
       }

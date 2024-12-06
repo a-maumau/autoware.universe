@@ -23,7 +23,6 @@
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
 #include <autoware/lidar_centerpoint/centerpoint_trt.hpp>
 #include <autoware/lidar_centerpoint/detection_class_remapper.hpp>
-#include <autoware/universe_utils/system/lru_cache.hpp>
 
 #include <autoware/universe_utils/system/time_keeper.hpp>
 
@@ -63,7 +62,6 @@ protected:
   void fuseOnSingleImage(
     const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg, const std::size_t image_id,
     const DetectedObjectsWithFeature & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info,
     sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg) override;
 
   void postprocess(sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg) override;
@@ -78,12 +76,6 @@ protected:
   std::vector<double> pointcloud_range;
   bool has_variance_{false};
   bool has_twist_{false};
-
-  // caches
-  uint8_t cache_size_;
-  uint8_t grid_size_;
-  uint8_t half_grid_size_;
-  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
 
   autoware::lidar_centerpoint::NonMaximumSuppression iou_bev_nms_;
   autoware::lidar_centerpoint::DetectionClassRemapper detection_class_remapper_;

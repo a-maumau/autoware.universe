@@ -35,12 +35,6 @@ private:
   bool fuse_unknown_only_{true};
   double cluster_2d_tolerance_;
 
-  // caches
-  uint8_t cache_size_;
-  uint8_t grid_size_;
-  uint8_t half_grid_size_;
-  std::vector<autoware::universe_utils::LRUCache<uint32_t, Eigen::Vector2d>> lidar_to_camera_caches_;
-
   rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
     detailed_processing_time_publisher_;
   std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
@@ -61,7 +55,7 @@ protected:
   void fuseOnSingleImage(
     const PointCloud2 & input_pointcloud_msg, const std::size_t image_id,
     const DetectedObjectsWithFeature & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info, PointCloud2 & output_pointcloud_msg) override;
+    PointCloud2 & output_pointcloud_msg) override;
   bool out_of_scope(const DetectedObjectWithFeature & obj);
 };
 

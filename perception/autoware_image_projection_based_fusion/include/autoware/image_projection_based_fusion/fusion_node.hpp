@@ -56,6 +56,7 @@ using tier4_perception_msgs::msg::DetectedObjectsWithFeature;
 using tier4_perception_msgs::msg::DetectedObjectWithFeature;
 using PointCloud = pcl::PointCloud<pcl::PointXYZ>;
 using autoware_perception_msgs::msg::ObjectClassification;
+using autoware::image_projection_based_fusion::CameraProjection;
 
 template <class TargetMsg3D, class ObjType, class Msg2D>
 class FusionNode : public rclcpp::Node
@@ -86,7 +87,7 @@ protected:
 
   virtual void fuseOnSingleImage(
     const TargetMsg3D & input_msg, const std::size_t image_id, const Msg2D & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info, TargetMsg3D & output_msg) = 0;
+    TargetMsg3D & output_msg) = 0;
 
   // set args if you need
   virtual void postprocess(TargetMsg3D & output_msg);
@@ -105,7 +106,7 @@ protected:
   // camera_info
   std::map<std::size_t, sensor_msgs::msg::CameraInfo> camera_info_map_;
   std::vector<rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr> camera_info_subs_;
-  std::vector<autoware::image_projection_based_fusion::CameraProjection> camera_projectors_;
+  std::vector<CameraProjection> camera_projectors_;
 
   rclcpp::TimerBase::SharedPtr timer_;
   std::vector<bool> approx_camera_projection_;

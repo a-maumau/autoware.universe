@@ -189,7 +189,7 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
   obj_pub_ptr_ = this->create_publisher<DetectedObjects>("~/output/objects", rclcpp::QoS{1});
 
   // time keeper
-  bool use_time_keeper = true;//declare_parameter<bool>("publish_processing_time_detail");
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
   if (use_time_keeper) {
       detailed_processing_time_publisher_ =
         this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
@@ -261,7 +261,6 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   __attribute__((unused)) const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg,
   std::size_t image_id,
   const DetectedObjectsWithFeature & input_roi_msg,
-  __attribute__((unused)) const sensor_msgs::msg::CameraInfo & camera_info,
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
@@ -333,70 +332,74 @@ dc   | dc dc dc  dc ||zc|
 
 
   int iterations = painted_pointcloud_msg.data.size() / painted_pointcloud_msg.point_step;
-  // iterate points
-  // Requires 'OMP_NUM_THREADS=N'
-  omp_set_num_threads(omp_num_threads_);
+  { // iterate points and calculate camera projections
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
+
+    // Requires 'OMP_NUM_THREADS=N'
+    omp_set_num_threads(omp_num_threads_);
 #pragma omp parallel for
-  for (int i = 0; i < iterations; i++) {
-    int stride = p_step * i;
-    unsigned char * data = &painted_pointcloud_msg.data[0];
-    unsigned char * output = &painted_pointcloud_msg.data[0];
-    // cppcheck-suppress-begin invalidPointerCast
-    float p_x = *reinterpret_cast<const float *>(&data[stride + x_offset]);
-    float p_y = *reinterpret_cast<const float *>(&data[stride + y_offset]);
-    float p_z = *reinterpret_cast<const float *>(&data[stride + z_offset]);
-    // cppcheck-suppress-end invalidPointerCast
-    point_lidar << p_x, p_y, p_z;
-    point_camera = lidar2cam_affine * point_lidar;
-    p_x = point_camera.x();
-    p_y = point_camera.y();
-    p_z = point_camera.z();
+    for (int i = 0; i < iterations; i++) {
+      int stride = p_step * i;
+      unsigned char * data = &painted_pointcloud_msg.data[0];
+      unsigned char * output = &painted_pointcloud_msg.data[0];
+      // cppcheck-suppress-begin invalidPointerCast
+      float p_x = *reinterpret_cast<const float *>(&data[stride + x_offset]);
+      float p_y = *reinterpret_cast<const float *>(&data[stride + y_offset]);
+      float p_z = *reinterpret_cast<const float *>(&data[stride + z_offset]);
+      // cppcheck-suppress-end invalidPointerCast
+      point_lidar << p_x, p_y, p_z;
+      point_camera = lidar2cam_affine * point_lidar;
+      p_x = point_camera.x();
+      p_y = point_camera.y();
+      p_z = point_camera.z();
 
-    if (camera_projectors_[image_id].isOutsideHorizontalView(p_x, p_z)) {
-      continue;
-    }
-    // project
-    Eigen::Vector2d projected_point;
-    if (camera_projectors_[image_id].calcRawImageProjectedPoint(
-      cv::Point3d(p_x, p_y, p_z), projected_point
-    )) {
-      double px = projected_point.x();
-      double py = projected_point.y();
-
-#if 0
-      // Parallelizing loop don't support push_back
-      //if (debugger_) {
-      //  debug_image_points.push_back(projected_point);
-      //}
-#endif
-
-      // filter the points in the left side of most left located ROI
-      // if isInsideBbox's zc is not 1.0, this will break the logic
-      // since it is assuming on the image plane (pixel coodinate)
-      if (feature_object_with_roi_info.size() > 0 && px < feature_object_with_roi_info[0].feature_obj->feature.roi.x_offset) {
+      if (camera_projectors_[image_id].isOutsideHorizontalView(p_x, p_z)) {
         continue;
       }
+      // project
+      Eigen::Vector2d projected_point;
+      if (camera_projectors_[image_id].calcRawImageProjectedPoint(
+        cv::Point3d(p_x, p_y, p_z), projected_point
+      )) {
+        double px = projected_point.x();
+        double py = projected_point.y();
 
-      // iterate 2d bbox
-      for (const auto & obj : feature_object_with_roi_info) {
-        const DetectedObjectWithFeature & feature_object = *obj.feature_obj;
-        sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
-        // paint current point if it is inside bbox
-        int label2d = obj.label;
-        if (!isUnknown(label2d) && isInsideBbox(px, py, roi, 1.0)) {
-          // cppcheck-suppress invalidPointerCast
-          auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
-          for (const auto & cls : isClassTable_) {
-            // add up the class values if the point belongs to multiple classes
-            *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
-          }
-        }
-        // if the projected_point is in the right side of the ROI,
-        // we don't need to search more than this ROI bbox
+#if 0
+        // Parallelizing loop don't support push_back
+        //if (debugger_) {
+        //  debug_image_points.push_back(projected_point);
+        //}
+#endif
+
+        // filter the points in the left side of most left located ROI
         // if isInsideBbox's zc is not 1.0, this will break the logic
         // since it is assuming on the image plane (pixel coodinate)
-        if (px > obj.roi_right_side_x){
-          break;
+        if (feature_object_with_roi_info.size() > 0 && px < feature_object_with_roi_info[0].feature_obj->feature.roi.x_offset) {
+          continue;
+        }
+
+        // iterate 2d bbox
+        for (const auto & obj : feature_object_with_roi_info) {
+          const DetectedObjectWithFeature & feature_object = *obj.feature_obj;
+          sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
+          // paint current point if it is inside bbox
+          int label2d = obj.label;
+          if (!isUnknown(label2d) && isInsideBbox(px, py, roi, 1.0)) {
+            // cppcheck-suppress invalidPointerCast
+            auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
+            for (const auto & cls : isClassTable_) {
+              // add up the class values if the point belongs to multiple classes
+              *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
+            }
+          }
+          // if the projected_point is in the right side of the ROI,
+          // we don't need to search more than this ROI bbox
+          // if isInsideBbox's zc is not 1.0, this will break the logic
+          // since it is assuming on the image plane (pixel coodinate)
+          if (px > obj.roi_right_side_x){
+            break;
+          }
         }
       }
     }
@@ -404,7 +407,7 @@ dc   | dc dc dc  dc ||zc|
 
   if (debugger_) {
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("debug_publish", *time_keeper_);
+    if (time_keeper_ && image_id == 0) inner_st_ptr = std::make_unique<ScopedTimeTrack>("publish debug message", *time_keeper_);
 
     for (const auto & feature_object : input_roi_msg.feature_objects) {
       debug_image_rois.push_back(feature_object.feature.roi);

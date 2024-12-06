@@ -294,7 +294,7 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::subCallback(
 
         fuseOnSingleImage(
           *input_msg, roi_i, *((cached_roi_msgs_.at(roi_i))[matched_stamp]),
-          camera_info_map_.at(roi_i), *output_msg);
+          *output_msg);
         (cached_roi_msgs_.at(roi_i)).erase(matched_stamp);
         is_fused_.at(roi_i) = true;
 
@@ -363,7 +363,7 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::roiCallback(
       }
 
       fuseOnSingleImage(
-        *(cached_msg_.second), roi_i, *input_roi_msg, camera_info_map_.at(roi_i),
+        *(cached_msg_.second), roi_i, *input_roi_msg,
         *(cached_msg_.second));
       is_fused_.at(roi_i) = true;
 

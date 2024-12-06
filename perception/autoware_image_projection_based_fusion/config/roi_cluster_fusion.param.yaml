@@ -10,3 +10,6 @@
     iou_threshold: 0.65
     unknown_iou_threshold: 0.1
     remove_unknown: true
+
+    # debug parameters
+    publish_processing_time_detail: true
