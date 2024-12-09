@@ -341,15 +341,14 @@ dc   | dc dc dc  dc ||zc|
   std::vector<FeatureobjectAndROIInfo> feature_object_with_roi_info;
   for (const auto & feature_object : input_roi_msg.feature_objects) {
     feature_object_with_roi_info.push_back(FeatureobjectAndROIInfo{
-      &feature_object, feature_object.feature.roi.y_offset + feature_object.feature.roi.height,
+      &feature_object, feature_object.feature.roi.x_offset + feature_object.feature.roi.width,
       feature_object.object.classification.front().label});
   }
   // sort the ROI by their x-values to search efficiently
   std::sort(
     feature_object_with_roi_info.begin(), feature_object_with_roi_info.end(),
     [](const auto & a, const auto & b) {
-      // return a.feature_obj->feature.roi.x_offset < b.feature_obj->feature.roi.x_offset;
-      return a.feature_obj->feature.roi.y_offset < b.feature_obj->feature.roi.y_offset;
+      return a.feature_obj->feature.roi.x_offset < b.feature_obj->feature.roi.x_offset;
     });
 
   int iterations = painted_pointcloud_msg.data.size() / painted_pointcloud_msg.point_step;
@@ -400,7 +399,7 @@ dc   | dc dc dc  dc ||zc|
       // if isInsideBbox's zc is not 1.0, this will break the logic
       if (
         feature_object_with_roi_info.size() > 0 &&
-        py < feature_object_with_roi_info[0].feature_obj->feature.roi.y_offset) {
+        px < feature_object_with_roi_info[0].feature_obj->feature.roi.x_offset) {
         continue;
       }
 
@@ -422,7 +421,7 @@ dc   | dc dc dc  dc ||zc|
         // we don't need to search more than this ROI bbox
         // since it is assuming on the image plane (pixel coodinate)
         // if isInsideBbox's zc is not 1.0, this will break the logic
-        if (py > obj.roi_right_side_x) {
+        if (px > obj.roi_right_side_x) {
           break;
         }
       }
