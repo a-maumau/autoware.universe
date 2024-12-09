@@ -102,7 +102,8 @@ void RoiClusterFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info, DetectedObjectsWithFeature & output_cluster_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0)
+    st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (!checkCameraInfo(camera_info)) return;
 
@@ -128,7 +129,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
 
   {  // calculate camera projections and create ROI clusters
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr =
         std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
 
@@ -194,7 +195,7 @@ void RoiClusterFusionNode::fuseOnSingleImage(
 
   {  // search matching ROI and update label
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr = std::make_unique<ScopedTimeTrack>("compare ROI", *time_keeper_);
 
     // sort the clusters by their x-values to search for the max IoU efficiently

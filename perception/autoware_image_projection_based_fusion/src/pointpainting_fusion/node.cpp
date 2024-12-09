@@ -275,7 +275,8 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0)
+    st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (painted_pointcloud_msg.data.empty() || painted_pointcloud_msg.fields.empty()) {
     RCLCPP_WARN_STREAM_THROTTLE(
@@ -297,7 +298,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   Eigen::Affine3f lidar2cam_affine;
   {
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate affine transform", *time_keeper_);
 
     const auto transform_stamped_optional = getTransformStamped(
@@ -355,7 +356,7 @@ dc   | dc dc dc  dc ||zc|
 
   {  // iterate points and calculate camera projections
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr =
         std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
 
