@@ -18,8 +18,10 @@
 #include "autoware/image_projection_based_fusion/fusion_node.hpp"
 
 #include <autoware/image_projection_based_fusion/utils/utils.hpp>
+#include <autoware/universe_utils/system/time_keeper.hpp>
 #include <image_transport/image_transport.hpp>
 
+#include <memory>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -49,6 +51,11 @@ private:
   image_transport::Publisher pub_debug_mask_ptr_;
   bool is_publish_debug_mask_;
   std::unordered_set<size_t> filter_global_offset_set_;
+
+  // timekeeper
+  rclcpp::Publisher<autoware::universe_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware::universe_utils::TimeKeeper> time_keeper_;
 
 public:
   explicit SegmentPointCloudFusionNode(const rclcpp::NodeOptions & options);

@@ -21,11 +21,13 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <utility>
 #include <vector>
 
 namespace autoware::image_projection_based_fusion
 {
+using autoware::universe_utils::ScopedTimeTrack;
 
 RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptions & options)
 : FusionNode<DetectedObjects, DetectedObject, DetectedObjectsWithFeature>(
@@ -44,6 +46,16 @@ RoiDetectedObjectFusionNode::RoiDetectedObjectFusionNode(const rclcpp::NodeOptio
     Eigen::Map<Eigen::MatrixXi> can_assign_matrix_tmp(
       can_assign_vector.data(), label_num, label_num);
     fusion_params_.can_assign_matrix = can_assign_matrix_tmp.transpose();
+  }
+
+  // time keeper
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+    detailed_processing_time_publisher_ =
+      this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+        "~/debug/processing_time_detail_ms", 1);
+    auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+    time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
   }
 }
 
@@ -81,10 +93,17 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info,
   DetectedObjects & output_object_msg __attribute__((unused)))
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (!checkCameraInfo(camera_info)) return;
 
   Eigen::Affine3d object2camera_affine;
-  {
+  {  // calculate affine transform
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_)
+      inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate affine transform", *time_keeper_);
+
     const auto transform_stamped_optional = getTransformStamped(
       tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
       /*source*/ input_object_msg.header.frame_id, input_roi_msg.header.stamp);
@@ -103,6 +122,10 @@ void RoiDetectedObjectFusionNode::fuseOnSingleImage(
   fuseObjectsOnImage(input_object_msg, input_roi_msg.feature_objects, object_roi_map);
 
   if (debugger_) {
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_)
+      inner_st_ptr = std::make_unique<ScopedTimeTrack>("publish debug message", *time_keeper_);
+
     debugger_->image_rois_.reserve(input_roi_msg.feature_objects.size());
     for (std::size_t roi_i = 0; roi_i < input_roi_msg.feature_objects.size(); ++roi_i) {
       debugger_->image_rois_.push_back(input_roi_msg.feature_objects.at(roi_i).feature.roi);
@@ -117,6 +140,9 @@ RoiDetectedObjectFusionNode::generateDetectedObjectRoIs(
   const Eigen::Affine3d & object2camera_affine,
   const image_geometry::PinholeCameraModel & pinhole_camera_model)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   std::map<std::size_t, DetectedObjectWithFeature> object_roi_map;
   int64_t timestamp_nsec = input_object_msg.header.stamp.sec * static_cast<int64_t>(1e9) +
                            input_object_msg.header.stamp.nanosec;
@@ -205,6 +231,9 @@ void RoiDetectedObjectFusionNode::fuseObjectsOnImage(
   const std::vector<DetectedObjectWithFeature> & image_rois,
   const std::map<std::size_t, DetectedObjectWithFeature> & object_roi_map)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   int64_t timestamp_nsec = input_object_msg.header.stamp.sec * static_cast<int64_t>(1e9) +
                            input_object_msg.header.stamp.nanosec;
   if (fused_object_flags_map_.size() == 0 || ignored_object_flags_map_.size() == 0) {

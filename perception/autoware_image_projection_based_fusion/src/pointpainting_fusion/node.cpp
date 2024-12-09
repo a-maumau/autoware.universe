@@ -35,6 +35,7 @@
 
 namespace
 {
+using autoware::universe_utils::ScopedTimeTrack;
 
 Eigen::Affine3f _transformToEigen(const geometry_msgs::msg::Transform & t)
 {
@@ -197,6 +198,16 @@ PointPaintingFusionNode::PointPaintingFusionNode(const rclcpp::NodeOptions & opt
 
   obj_pub_ptr_ = this->create_publisher<DetectedObjects>("~/output/objects", rclcpp::QoS{1});
 
+  // time keeper
+  bool use_time_keeper = declare_parameter<bool>("publish_processing_time_detail");
+  if (use_time_keeper) {
+    detailed_processing_time_publisher_ =
+      this->create_publisher<autoware::universe_utils::ProcessingTimeDetail>(
+        "~/debug/processing_time_detail_ms", 1);
+    auto time_keeper = autoware::universe_utils::TimeKeeper(detailed_processing_time_publisher_);
+    time_keeper_ = std::make_shared<autoware::universe_utils::TimeKeeper>(time_keeper);
+  }
+
   if (this->declare_parameter("build_only", false)) {
     RCLCPP_INFO(this->get_logger(), "TensorRT engine is built and shutdown node.");
     rclcpp::shutdown();
@@ -263,6 +274,9 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   const sensor_msgs::msg::CameraInfo & camera_info,
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   if (painted_pointcloud_msg.data.empty() || painted_pointcloud_msg.fields.empty()) {
     RCLCPP_WARN_STREAM_THROTTLE(
       this->get_logger(), *this->get_clock(), 1000, "Empty sensor points!");
@@ -283,6 +297,10 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   // geometry_msgs::msg::TransformStamped transform_stamped;
   Eigen::Affine3f lidar2cam_affine;
   {
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_)
+      inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate affine transform", *time_keeper_);
+
     const auto transform_stamped_optional = getTransformStamped(
       tf_buffer_, /*target*/ input_roi_msg.header.frame_id,
       /*source*/ painted_pointcloud_msg.header.frame_id, input_roi_msg.header.stamp);
@@ -322,51 +340,59 @@ dc   | dc dc dc  dc ||zc|
 
   auto objects = input_roi_msg.feature_objects;
   int iterations = painted_pointcloud_msg.data.size() / painted_pointcloud_msg.point_step;
-  // iterate points
-  // Requires 'OMP_NUM_THREADS=N'
-  omp_set_num_threads(omp_num_threads_);
+
+  {  // iterate points and calculate camera projections
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_)
+      inner_st_ptr =
+        std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
+
+    // Requires 'OMP_NUM_THREADS=N'
+    omp_set_num_threads(omp_num_threads_);
 #pragma omp parallel for
-  for (int i = 0; i < iterations; i++) {
-    int stride = p_step * i;
-    unsigned char * data = &painted_pointcloud_msg.data[0];
-    unsigned char * output = &painted_pointcloud_msg.data[0];
-    // cppcheck-suppress-begin invalidPointerCast
-    float p_x = *reinterpret_cast<const float *>(&data[stride + x_offset]);
-    float p_y = *reinterpret_cast<const float *>(&data[stride + y_offset]);
-    float p_z = *reinterpret_cast<const float *>(&data[stride + z_offset]);
-    // cppcheck-suppress-end invalidPointerCast
-    point_lidar << p_x, p_y, p_z;
-    point_camera = lidar2cam_affine * point_lidar;
-    p_x = point_camera.x();
-    p_y = point_camera.y();
-    p_z = point_camera.z();
+    for (int i = 0; i < iterations; i++) {
+      int stride = p_step * i;
+      unsigned char * data = &painted_pointcloud_msg.data[0];
+      unsigned char * output = &painted_pointcloud_msg.data[0];
+      // cppcheck-suppress-begin invalidPointerCast
+      float p_x = *reinterpret_cast<const float *>(&data[stride + x_offset]);
+      float p_y = *reinterpret_cast<const float *>(&data[stride + y_offset]);
+      float p_z = *reinterpret_cast<const float *>(&data[stride + z_offset]);
+      // cppcheck-suppress-end invalidPointerCast
+      point_lidar << p_x, p_y, p_z;
+      point_camera = lidar2cam_affine * point_lidar;
+      p_x = point_camera.x();
+      p_y = point_camera.y();
+      p_z = point_camera.z();
 
-    if (p_z <= 0.0 || p_x > (tan_h_.at(image_id) * p_z) || p_x < (-tan_h_.at(image_id) * p_z)) {
-      continue;
-    }
-    // project
-    Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
-      pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
+      if (p_z <= 0.0 || p_x > (tan_h_.at(image_id) * p_z) || p_x < (-tan_h_.at(image_id) * p_z)) {
+        continue;
+      }
+      // project
+      Eigen::Vector2d projected_point = calcRawImageProjectedPoint(
+        pinhole_camera_model, cv::Point3d(p_x, p_y, p_z), point_project_to_unrectified_image_);
 
-    // iterate 2d bbox
-    for (const auto & feature_object : objects) {
-      sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
-      // paint current point if it is inside bbox
-      int label2d = feature_object.object.classification.front().label;
-      if (!isUnknown(label2d) && isInsideBbox(projected_point.x(), projected_point.y(), roi, 1.0)) {
-        // cppcheck-suppress invalidPointerCast
-        auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
-        for (const auto & cls : isClassTable_) {
-          // add up the class values if the point belongs to multiple classes
-          *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
+      // iterate 2d bbox
+      for (const auto & feature_object : objects) {
+        sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
+        // paint current point if it is inside bbox
+        int label2d = feature_object.object.classification.front().label;
+        if (
+          !isUnknown(label2d) && isInsideBbox(projected_point.x(), projected_point.y(), roi, 1.0)) {
+          // cppcheck-suppress invalidPointerCast
+          auto p_class = reinterpret_cast<float *>(&output[stride + class_offset]);
+          for (const auto & cls : isClassTable_) {
+            // add up the class values if the point belongs to multiple classes
+            *p_class = cls.second(label2d) ? (class_index_[cls.first] + *p_class) : *p_class;
+          }
         }
-      }
 #if 0
-      // Parallelizing loop don't support push_back
-      if (debugger_) {
-        debug_image_points.push_back(projected_point);
-      }
+        // Parallelizing loop don't support push_back
+        if (debugger_) {
+          debug_image_points.push_back(projected_point);
+        }
 #endif
+      }
     }
   }
 
@@ -375,6 +401,10 @@ dc   | dc dc dc  dc ||zc|
   }
 
   if (debugger_) {
+    std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+    if (time_keeper_)
+      inner_st_ptr = std::make_unique<ScopedTimeTrack>("publish debug message", *time_keeper_);
+
     debugger_->image_rois_ = debug_image_rois;
     debugger_->obstacle_points_ = debug_image_points;
     debugger_->publishImage(image_id, input_roi_msg.header.stamp);
