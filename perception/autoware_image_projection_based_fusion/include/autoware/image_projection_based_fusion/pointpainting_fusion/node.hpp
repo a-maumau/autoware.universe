@@ -54,7 +54,6 @@ protected:
   void fuseOnSingleImage(
     const sensor_msgs::msg::PointCloud2 & input_pointcloud_msg, const std::size_t image_id,
     const DetectedObjectsWithFeature & input_roi_msg,
-    const sensor_msgs::msg::CameraInfo & camera_info,
     sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg) override;
 
   void postprocess(sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg) override;
