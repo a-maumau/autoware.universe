@@ -176,7 +176,6 @@ void FusionNode<TargetMsg3D, Obj, Msg2D>::cameraInfoCallback(
   const sensor_msgs::msg::CameraInfo::ConstSharedPtr input_camera_info_msg,
   const std::size_t camera_id)
 {
-  camera_info_map_[camera_id] = *input_camera_info_msg;
   // create the CameraProjection when the camera info arrives for the first time
   // assuming the camera info does not change while the node is running
   if(camera_info_map_.find(camera_id) == camera_info_map_.end() && checkCameraInfo(*input_camera_info_msg)){

@@ -274,7 +274,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   sensor_msgs::msg::PointCloud2 & painted_pointcloud_msg)
 {
   std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+  if (time_keeper_ && image_id == 0) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (painted_pointcloud_msg.data.empty() || painted_pointcloud_msg.fields.empty()) {
     RCLCPP_WARN_STREAM_THROTTLE(
@@ -295,7 +295,7 @@ void PointPaintingFusionNode::fuseOnSingleImage(
   Eigen::Affine3f lidar2cam_affine;
   {
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr = std::make_unique<ScopedTimeTrack>("calculate affine transform", *time_keeper_);
 
     const auto transform_stamped_optional = getTransformStamped(
@@ -337,7 +337,7 @@ dc   | dc dc dc  dc ||zc|
 
   {  // iterate points and calculate camera projections
     std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
-    if (time_keeper_)
+    if (time_keeper_ && image_id == 0)
       inner_st_ptr =
         std::make_unique<ScopedTimeTrack>("calculate camera projection", *time_keeper_);
 
@@ -368,6 +368,7 @@ dc   | dc dc dc  dc ||zc|
       if (camera_projectors_[image_id].calcRawImageProjectedPoint(
         cv::Point3d(p_x, p_y, p_z), projected_point
       )) {
+
         // iterate 2d bbox
         for (const auto & feature_object : objects) {
           sensor_msgs::msg::RegionOfInterest roi = feature_object.feature.roi;
@@ -383,9 +384,10 @@ dc   | dc dc dc  dc ||zc|
             }
           }
         }
-#if 0
+#if 1
         // Parallelizing loop don't support push_back
         if (debugger_) {
+          std::cout << projected_point.x() << ", " << projected_point.y() << std::endl;
           debug_image_points.push_back(projected_point);
         }
 #endif
