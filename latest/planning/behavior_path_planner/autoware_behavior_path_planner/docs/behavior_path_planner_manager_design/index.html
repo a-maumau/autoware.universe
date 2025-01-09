@@ -10097,7 +10097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../../sensing/autoware_pointcloud_preprocessor/docs/blockage_diag/" class="md-nav__link">
+      <a href="../../../../../sensing/autoware_pointcloud_preprocessor/docs/blockage-diag/" class="md-nav__link">
         blockage_diag
       </a>
     </li>
@@ -13463,6 +13463,8 @@
         
           
         
+          
+        
       
       
         <label class="md-nav__link" for="__nav_14_1" id="__nav_14_1_label" tabindex="0">
@@ -13557,6 +13559,52 @@
         <label class="md-nav__title" for="__nav_14_1_2">
           <span class="md-nav__icon md-icon"></span>
           Autoware overlay rviz plugin
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14_1_3" >
+      
+      
+        
+          
+            
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../../../../../visualization/autoware_overlay_rviz_plugin/autoware_string_stamped_overlay_rviz_plugin/">Autoware string stamped overlay rviz plugin</a>
+          
+        </div>
+      
+      <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_14_1_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_14_1_3">
+          <span class="md-nav__icon md-icon"></span>
+          Autoware string stamped overlay rviz plugin
         </label>
         <ul class="md-nav__list" data-md-scrollfix>
           
@@ -14954,8 +15002,8 @@
 <p><img alt="waiting_approve" src="../../image/manager/waiting_approve.drawio.svg"></p>
 <p>If this case happened in the slot, <code>is_upstream_waiting_approved</code> is set to true.</p>
 <h3 id="failure-modules">Failure modules<a class="headerlink" href="#failure-modules" title="Permanent link">#</a></h3>
-<p>The failure modules return the status <code>ModuleStatus::FAILURE</code>. The manager removes the module from approved modules stack as well as waiting approval modules, but the failure module is not moved to candidate modules stack.</p>
-<p>As a result, the module A's output is used as approved modules stack.</p>
+<p>If a module returns <code>ModuleStatus::FAILURE</code>, the manager removes the failed module. Additionally, all modules after the failed module are removed, even if they did not return <code>ModuleStatus::FAILURE</code>. These modules are not added back to the candidate modules stack and will instead run again from the beginning. Once these modules are removed, the output of the module prior to the failed module will be used as the planner's output.</p>
+<p>As shown in the example below, modules B, A, and C are running. When module A returns <code>ModuleStatus::FAILURE</code>, both module A and C are removed from the approved modules stack. Module B's output is then used as the final output of the planner.</p>
 <p><img alt="failure_modules" src="../../image/manager/failure_modules.drawio.svg"></p>
 <p>If this case happened in the slot, <code>is_upstream_failed_approved</code> is set to true.</p>
 <h3 id="succeeded-modules">Succeeded modules<a class="headerlink" href="#succeeded-modules" title="Permanent link">#</a></h3>
