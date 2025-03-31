@@ -264,7 +264,7 @@ void LidarCenterPointNode::pointCloudCallback(
     diagnostics_processing_delay_->add_key_value("processing_time_ms", processing_time_ms);
 
     const rclcpp::Time timestamp_now = this->get_clock()->now();
-    const double delayed_state_duration = calcDelayedStateDuration(timestamp_now);
+    const double delayed_state_duration = calcDelayedStateDuration(timestamp);
     diagnoseProcessingTime(delayed_state_duration, processing_time_ms, timestamp_now);
 
     // add processing time for debug
@@ -290,7 +290,7 @@ void LidarCenterPointNode::pointCloudCallback(
 void LidarCenterPointNode::diagnosticsTimerCallback()
 {
   const rclcpp::Time timestamp_now = this->get_clock()->now();
-  const double delayed_state_duration = calcDelayedStateDuration(timestamp_now);
+  const double delayed_state_duration = calcDelayedStateDuration(timestamp);
   diagnoseProcessingTime(delayed_state_duration, 0.0, timestamp_now);
 }
 

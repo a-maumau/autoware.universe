@@ -53,10 +53,6 @@ private:
     const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> & input_pointcloud_msg);
   void diagnosticsTimerCallback();
 
-  double calcDelayedStateDuration(const rclcpp::Time & timestamp);
-  void diagnoseProcessingTime(const double & delayed_state_duration,
-    const double & processing_time_ms, const rclcpp::Time & timestamp);
-
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_{tf_buffer_};
 
@@ -79,6 +75,7 @@ private:
   std::unique_ptr<CenterPointTRT> detector_ptr_{nullptr};
   std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_centerpoint_trt_;
   std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_processing_delay_;
+  std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_consecutive_delay_;
   rclcpp::TimerBase::SharedPtr diagnostics_processing_time_timer_;
 
   // debugger
