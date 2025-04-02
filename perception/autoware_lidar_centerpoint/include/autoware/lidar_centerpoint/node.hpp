@@ -73,7 +73,7 @@ private:
   DetectionClassRemapper detection_class_remapper_;
 
   std::unique_ptr<CenterPointTRT> detector_ptr_{nullptr};
-  std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_interface_ptr_;
+  std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_centerpoint_trt_;
   std::unique_ptr<autoware_utils::DiagnosticsInterface> diagnostics_processing_delay_;
   rclcpp::TimerBase::SharedPtr diagnostics_processing_time_timer_;
 
