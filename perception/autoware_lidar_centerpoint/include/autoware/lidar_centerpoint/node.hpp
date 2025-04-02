@@ -52,6 +52,7 @@ private:
   void pointCloudCallback(
     const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> & input_pointcloud_msg);
   void diagnosticsTimerCallback();
+  double calcConsecutiveDelay(const rclcpp::Time & timestamp);
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_{tf_buffer_};

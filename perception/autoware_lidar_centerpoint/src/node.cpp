@@ -158,7 +158,7 @@ double LidarCenterPointNode::calcConsecutiveDelay(const rclcpp::Time & timestamp
         (timestamp - last_in_time_processing_timestamp_.value()).nanoseconds()))
       .count();
 
-  return delayed_state_duration
+  return delayed_duration;
 }
 
 void LidarCenterPointNode::pointCloudCallback(
@@ -304,6 +304,7 @@ void LidarCenterPointNode::diagnosticsTimerCallback()
         "Processing delay has exceeded the acceptable limit continuously.");
 
       diagnostics_processing_delay_->publish(timestamp_now);
+    }
   }
 }
 
