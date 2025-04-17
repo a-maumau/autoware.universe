@@ -130,11 +130,11 @@ LinearRing2d expandPolygon(const LinearRing2d & polygon, double distance)
   return multi_polygon.front().outer();
 }
 
-bool isPointBelowLanelet(
+bool isPointAboveLanelet(
   const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line,
   const double offset = 0.0) {
   if (line.size() < 2) {
-    return false;
+    return true;
   }
 
   // search the nearest point from the query point
@@ -155,9 +155,9 @@ bool isPointBelowLanelet(
   double closest_plane_normal_vector_dist = std::numeric_limits<double>::infinity();
   double min_abs_dist = std::numeric_limits<double>::infinity();
   // calculate the projection and use the nearest plane to
-  std::cout << "line size: " << line.size() << std::endl;
-  for (size_t i = std::max(static_cast<size_t>(0), min_index-1); i + 1 < line.size(); ++i) {
-    std::cout << "(" << i << ", " << i+1 << ")" << std::endl;
+  //std::cout << "line size: " << line.size() << std::endl;
+  for (size_t i = std::max(static_cast<size_t>(0), min_index-1); i + 1 < line.size() && i <= min_index+1; ++i) {
+    //std::cout << "(" << i << ", " << i+1 << ")" << std::endl;
     const lanelet::ConstPoint3d & a = line[i];
     const lanelet::ConstPoint3d & b = line[i + 1];
 
@@ -179,7 +179,7 @@ bool isPointBelowLanelet(
     if (normal.z() < 0) normal *= -1;
 
     // adjust the query point if needed by the offset
-    Eigen::Vector3d aq = (query_point - offset * normal) - pa;
+    Eigen::Vector3d aq = (query_point + offset * normal) - pa;
     double signed_dist = aq.dot(normal);
     //Eigen::Vector3d proj = query_point - signed_dist * normal;
 
@@ -205,9 +205,10 @@ bool isPointBelowLanelet(
   }
 
   if (min_abs_dist == std::numeric_limits<double>::infinity()) {
-    return false;
+    return true;
   }
 
+  //std::cout << closest_plane_normal_vector_dist << std::endl;
   if (closest_plane_normal_vector_dist < 0) return false;
   else return true;
 }
@@ -541,12 +542,13 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
 
       std::optional<lanelet::ConstLineString3d> nearest_left_bound;
       double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
-      // check for the case when lanelets are layered
+      // use the closest lanelet in z axis
+      // in case roads are layered
       for (const auto & p_lanelet : p_lanelets) {
         const lanelet::ConstLineString3d line = p_lanelet.leftBound();
         if (line.size() == 0) continue;
 
-        // assuming the road has enough height to distinguish each others
+        // assuming the roads have enough height to distinguish each others
         const double diff_z = cz - line[0].z();
         const double dist_z = diff_z * diff_z;
         if (dist_z < closest_lanelet_z_dist) {
@@ -556,7 +558,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       }
 
       if (nearest_left_bound) {
-        return isPointBelowLanelet(query_point, nearest_left_bound.value(), max_z);
+        return isPointAboveLanelet(query_point, nearest_left_bound.value(), max_z-cz);
       }
     }
 
