@@ -131,10 +131,10 @@ LinearRing2d expandPolygon(const LinearRing2d & polygon, double distance)
 }
 
 bool isPointBelowLanelet(
-  const Eigen::Vector3d& query_point,
-  const lanelet::ConstLineString3d & line) {
+  const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line,
+  const double offset = 0.0) {
   if (line.size() < 2) {
-    return true;
+    return false;
   }
 
   // search the nearest point from the query point
@@ -155,25 +155,31 @@ bool isPointBelowLanelet(
   double closest_plane_normal_vector_dist = std::numeric_limits<double>::infinity();
   double min_abs_dist = std::numeric_limits<double>::infinity();
   // calculate the projection and use the nearest plane to
+  std::cout << "line size: " << line.size() << std::endl;
   for (size_t i = std::max(static_cast<size_t>(0), min_index-1); i + 1 < line.size(); ++i) {
+    std::cout << "(" << i << ", " << i+1 << ")" << std::endl;
     const lanelet::ConstPoint3d & a = line[i];
     const lanelet::ConstPoint3d & b = line[i + 1];
 
-    Eigen::Vector3d pa(a.x(), a.y(), a.z());
-    Eigen::Vector3d pb(b.x(), b.y(), b.z());
+    const Eigen::Vector3d pa(a.x(), a.y(), a.z());
+    const Eigen::Vector3d pb(b.x(), b.y(), b.z());
 
-    Eigen::Vector3d ab = pb - pa;
-    if (ab.norm() < 1e-6) continue;
-    Eigen::Vector3d ab_dir = ab.normalized();
+    Eigen::Vector3d ab_unit_vec = pb - pa;
+    if (ab_unit_vec.norm() < 1e-6) continue;
+    ab_unit_vec = ab_unit_vec.normalized();
 
-    Eigen::Vector3d up(0, 0, 1);
-    Eigen::Vector3d side = ab_dir.cross(up);
+    const Eigen::Vector3d up(0, 0, 1);
+    Eigen::Vector3d side = ab_unit_vec.cross(up);
+    // in case of ab angled near to z axis
     if (side.norm() < 1e-6) continue;
 
-    Eigen::Vector3d normal = side.cross(ab_dir).normalized();
-    if (normal.z() < 0) normal *= -1;  // Ensure normal points toward +Z
+    // calc normal vector of x-y plane that is tilted to ab
+    Eigen::Vector3d normal = side.cross(ab_unit_vec).normalized();
+    // ensure normal points toward +Z
+    if (normal.z() < 0) normal *= -1;
 
-    Eigen::Vector3d aq = query_point - pa;
+    // adjust the query point if needed by the offset
+    Eigen::Vector3d aq = (query_point - offset * normal) - pa;
     double signed_dist = aq.dot(normal);
     //Eigen::Vector3d proj = query_point - signed_dist * normal;
 
@@ -198,8 +204,12 @@ bool isPointBelowLanelet(
     }
   }
 
-  if (closest_plane_normal_vector_dist > 0) return true;
-  else return false;
+  if (min_abs_dist == std::numeric_limits<double>::infinity()) {
+    return false;
+  }
+
+  if (closest_plane_normal_vector_dist < 0) return false;
+  else return true;
 }
 
 
@@ -310,7 +320,7 @@ bool ObjectLaneletFilterNode::filterObject(
 
     bool filter_pass = true;
 
-    // 2. check if objects velocity is the same with the lanelet direction
+    // 1. check if objects velocity is the same with the lanelet direction
     const bool orientation_not_available =
       transformed_object.kinematics.orientation_availability ==
       autoware_perception_msgs::msg::TrackedObjectKinematics::UNAVAILABLE;
@@ -319,16 +329,18 @@ bool ObjectLaneletFilterNode::filterObject(
       filter_pass = filter_pass && is_same_direction;
     }
 
-    // 1. is polygon overlap with road lanelets or shoulder lanelets
-    if (filter_settings_.polygon_overlap_filter) {
-      const bool is_polygon_overlap = isObjectOverlapLanelets(transformed_object, local_rtree);
-      filter_pass = filter_pass && is_polygon_overlap;
-    }
-
-    // push back to output object
     if (filter_pass) {
-      output_object_msg.objects.emplace_back(input_object);
-      return true;
+      // 2. is polygon overlap with road lanelets or shoulder lanelets
+      if (filter_settings_.polygon_overlap_filter) {
+        const bool is_polygon_overlap = isObjectOverlapLanelets(transformed_object, local_rtree);
+        filter_pass = filter_pass && is_polygon_overlap;
+      }
+
+      // push back to output object
+      if (filter_pass) {
+        output_object_msg.objects.emplace_back(input_object);
+        return true;
+      }
     }
   } else {
     output_object_msg.objects.emplace_back(input_object);
@@ -488,6 +500,8 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     double cx = 0.0;
     double cy = 0.0;
     double cz = 0.0;
+    // used for approximating max radius of the points from the centroid
+    double max_z = std::numeric_limits<double>::min();
 
     bool point_in_polygon = false;
     std::vector<lanelet::ConstLanelet> p_lanelets;
@@ -502,6 +516,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       cx += point_transformed.x;
       cy += point_transformed.y;
       cz += point_transformed.z;
+      max_z = std::max(max_z, static_cast<double>(point_transformed.z));
 
       for (const auto & candidate : candidates) {
         if (isInPolygon(point_transformed.x, point_transformed.y, candidate.second.polygon, 0.0)) {
@@ -534,14 +549,14 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
         // assuming the road has enough height to distinguish each others
         const double diff_z = cz - line[0].z();
         const double dist_z = diff_z * diff_z;
-        if (closest_lanelet_z_dist < dist_z) {
+        if (dist_z < closest_lanelet_z_dist) {
           closest_lanelet_z_dist = dist_z;
           nearest_left_bound = line;
         }
       }
 
       if (nearest_left_bound) {
-        return isPointBelowLanelet(query_point, nearest_left_bound.value());
+        return isPointBelowLanelet(query_point, nearest_left_bound.value(), max_z);
       }
     }
 
