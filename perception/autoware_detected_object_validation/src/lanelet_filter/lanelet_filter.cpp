@@ -38,6 +38,9 @@ namespace autoware::detected_object_validation
 {
 namespace lanelet_filter
 {
+using autoware_utils::ScopedTimeTrack;
+using TriangleMesh = std::vector<std::array<Eigen::Vector3d, 3>>;
+
 ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & node_options)
 : Node("object_lanelet_filter_node", node_options),
   tf_buffer_(this->get_clock()),
@@ -90,6 +93,12 @@ ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & nod
     viz_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
       "~/debug/marker", rclcpp::QoS{1});
   }
+
+  detailed_processing_time_publisher_ =
+    this->create_publisher<autoware_utils::ProcessingTimeDetail>(
+      "~/debug/processing_time_detail_ms", 1);
+  auto time_keeper = autoware_utils::TimeKeeper(detailed_processing_time_publisher_);
+  time_keeper_ = std::make_shared<autoware_utils::TimeKeeper>(time_keeper);
 }
 
 bool isInPolygon(
@@ -129,6 +138,40 @@ LinearRing2d expandPolygon(const LinearRing2d & polygon, double distance)
 
   return multi_polygon.front().outer();
 }
+
+
+TriangleMesh createTriangleMesh(const lanelet::ConstLanelet & lanelet) {
+  TriangleMesh triangles;
+
+  const lanelet::ConstLineString3d & left = lanelet.leftBound();
+  const lanelet::ConstLineString3d & right = lanelet.rightBound();
+
+  // bounds must have same number of points
+  // if not the same, only check the first shared points
+  size_t n = std::min(left.size(), right.size());
+  if (n < 2) continue;
+
+  // take 2 points from each side and create 2 triangles
+  for (size_t i = 0; i < n - 1; ++i) {
+    Eigen::Vector3d a_l(left[i].x(), left[i].y(), left[i].z());
+    Eigen::Vector3d b_l(left[i + 1].x(), left[i + 1].y(), left[i + 1].z());
+    Eigen::Vector3d a_r(right[i].x(), right[i].y(), right[i].z());
+    Eigen::Vector3d b_r(right[i + 1].x(), right[i + 1].y(), right[i + 1].z());
+
+    //
+    // b_l .--. b_r
+    //     |\ |
+    //     | \|
+    //     .--.
+    // a_l      a_r
+    //
+    triangles.push_back({a_l, b_l, a_r});
+    triangles.push_back({b_l, b_r, a_r});
+  }
+
+  return triangles;
+}
+
 
 bool isPointAboveLanelet(
   const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line,
@@ -237,6 +280,10 @@ void ObjectLaneletFilterNode::objectCallback(
     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 3000, "No vector map received.");
     return;
   }
+
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   autoware_perception_msgs::msg::DetectedObjects transformed_objects;
   if (!autoware::object_recognition_utils::transformObjects(
         *input_msg, lanelet_frame_id_, tf_buffer_, transformed_objects)) {
@@ -302,6 +349,9 @@ bool ObjectLaneletFilterNode::filterObject(
   const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree,
   autoware_perception_msgs::msg::DetectedObjects & output_object_msg)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
     // no tree, then no intersection
@@ -557,8 +607,10 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
         }
       }
 
-      if (nearest_left_bound) {
+      if (nearest_left_bound && false) {
         return isPointAboveLanelet(query_point, nearest_left_bound.value(), max_z-cz);
+      } else {
+        return point_in_polygon;
       }
     }
 
