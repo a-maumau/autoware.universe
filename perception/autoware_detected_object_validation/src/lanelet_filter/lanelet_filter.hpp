@@ -22,10 +22,13 @@
 #include "autoware_utils/ros/published_time_publisher.hpp"
 #include "autoware_utils/system/stop_watch.hpp"
 
+#include <autoware_utils/system/time_keeper.hpp>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include "autoware_map_msgs/msg/lanelet_map_bin.hpp"
 #include "autoware_perception_msgs/msg/detected_objects.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <boost/geometry/index/rtree.hpp>
@@ -79,8 +82,17 @@ private:
   rclcpp::Subscription<autoware_map_msgs::msg::LaneletMapBin>::SharedPtr map_sub_;
   rclcpp::Subscription<autoware_perception_msgs::msg::DetectedObjects>::SharedPtr object_sub_;
 
+  // debug
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr debug_query_point_pub_;
+  std::vector<Eigen::Vector3d> query_points_;
+
   std::unique_ptr<autoware_utils::DebugPublisher> debug_publisher_{nullptr};
   std::unique_ptr<autoware_utils::StopWatch<std::chrono::milliseconds>> stop_watch_ptr_;
+
+  // timekeeper
+  rclcpp::Publisher<autoware_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware_utils::TimeKeeper> time_keeper_;
 
   lanelet::LaneletMapPtr lanelet_map_ptr_;
   std::string lanelet_frame_id_;
