@@ -24,6 +24,7 @@
 #include <boost/geometry/algorithms/disjoint.hpp>
 #include <boost/geometry/algorithms/intersects.hpp>
 #include <boost/geometry/index/rtree.hpp>
+#include <Eigen/Core>
 
 #include <lanelet2_core/geometry/BoundingBox.h>
 #include <lanelet2_core/geometry/Lanelet.h>
@@ -68,6 +69,8 @@ ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & nod
     declare_parameter<double>("filter_settings.lanelet_direction_filter.velocity_yaw_threshold");
   filter_settings_.lanelet_direction_filter_object_speed_threshold =
     declare_parameter<double>("filter_settings.lanelet_direction_filter.object_speed_threshold");
+  filter_settings_.filter_object_under_lanelet =
+    declare_parameter<bool>("filter_settings.filter_object_under_lanelet.enabled");
   filter_settings_.debug = declare_parameter<bool>("filter_settings.debug");
   filter_settings_.lanelet_extra_margin =
     declare_parameter<double>("filter_settings.lanelet_extra_margin");
@@ -193,8 +196,7 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3>& triangle
 
 // check the query point is whether above the lanelet's Linestring segment's plane
 bool isPointAboveLaneletSegment(
-  const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line,
-  const double offset = 0.0)
+  const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line)
 {
   if (line.size() < 2) {
     return true;
@@ -247,7 +249,8 @@ bool isPointAboveLaneletSegment(
     // this is aiming the case there are outlier points in the cluster with relative large z value
     // since the current euclidean cluster is doing in the work in 2D,
     // cluster may contain some relatively large z points compare to the centroid
-    Eigen::Vector3d aq = (query_point + offset * normal) - pa;
+    //Eigen::Vector3d aq = (query_point + offset * normal) - pa;
+    Eigen::Vector3d aq = query_point - pa;
     double signed_dist = aq.dot(normal);
 
     // search the nearest face by the 
@@ -262,15 +265,13 @@ bool isPointAboveLaneletSegment(
     return true;
   }
 
-  //std::cout << closest_plane_normal_vector_dist << std::endl;
   if (min_dist < 0) return false;
   else return true;
 }
 
 // checks whether a point is located above the lanelet triangle plane
 // that is closest in the perpendicular direction
-bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet,
-  const double offset = 0.0)
+bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet)
 {
   TriangleMesh mesh = createTriangleMeshFromLanelet(lanelet);
 
@@ -281,7 +282,8 @@ bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::Const
   for (const auto& tri : mesh) {
     Eigen::Vector3d plane_normal_vec = computeFaceNormal(tri);
     // use offset for outlier points to take into account
-    Eigen::Vector3d vec_to_point = (point + offset * plane_normal_vec) - tri[0];
+    //Eigen::Vector3d vec_to_point = (point + offset * plane_normal_vec) - tri[0];
+    Eigen::Vector3d vec_to_point = point - tri[0];
     double signed_dist = plane_normal_vec.dot(vec_to_point);
 
     const double abs_dist = std::abs(signed_dist);
@@ -358,11 +360,15 @@ void ObjectLaneletFilterNode::objectCallback(
     if (filter_settings_.debug) {
       publishDebugMarkers(input_msg->header.stamp, convex_hull, intersected_lanelets_with_bbox);
     }
-    // filtering process
-    for (size_t index = 0; index < transformed_objects.objects.size(); ++index) {
-      const auto & transformed_object = transformed_objects.objects.at(index);
-      const auto & input_object = input_msg->objects.at(index);
-      filterObject(transformed_object, input_object, local_rtree, output_object_msg);
+    {
+      std::unique_ptr<ScopedTimeTrack> st_innter_ptr;
+      if (time_keeper_) st_innter_ptr = std::make_unique<ScopedTimeTrack>("filter_object_total", *time_keeper_);
+      // filtering process
+      for (size_t index = 0; index < transformed_objects.objects.size(); ++index) {
+        const auto & transformed_object = transformed_objects.objects.at(index);
+        const auto & input_object = input_msg->objects.at(index);
+        filterObject(transformed_object, input_object, local_rtree, output_object_msg);
+      }
     }
   }
 
@@ -380,10 +386,10 @@ void ObjectLaneletFilterNode::objectCallback(
   }
   sensor_msgs::msg::PointCloud2 query_points_in_map;
   pcl::toROSMsg(query_points_in_map_ptr_rgb, query_points_in_map);
-  query_points_in_map.header.stamp = output_object_msg.header.stamp;
-  query_points_in_map.header.frame_id = output_object_msg.header.frame_id;
-  query_points_.clear();
+  query_points_in_map.header.stamp = input_msg->header.stamp;
+  query_points_in_map.header.frame_id = "map";//input_msg->header.frame_id;
   debug_query_point_pub_->publish(query_points_in_map);
+  query_points_.clear();
 
   object_pub_->publish(output_object_msg);
   published_time_publisher_->publish_if_subscribed(object_pub_, output_object_msg.header.stamp);
@@ -406,9 +412,6 @@ bool ObjectLaneletFilterNode::filterObject(
   const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree,
   autoware_perception_msgs::msg::DetectedObjects & output_object_msg)
 {
-  std::unique_ptr<ScopedTimeTrack> st_ptr;
-  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
-
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
     // no tree, then no intersection
@@ -604,12 +607,11 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     bg::envelope(object_convex_hull, bbox);
     local_rtree.query(bgi::intersects(bbox), std::back_inserter(candidates));
 
-    // for centroid
+    // for centroid of the cluster
     double cx = 0.0;
     double cy = 0.0;
     double cz = 0.0;
-    // used for approximating max radius of the points from the centroid
-    double max_z = std::numeric_limits<double>::min();
+    double max_z = std::numeric_limits<double>::lowest();
 
     bool point_in_polygon = false;
     std::vector<lanelet::ConstLanelet> lanelets_containing_cluster_points;
@@ -618,9 +620,6 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     for (const auto & point : object.shape.footprint.points) {
       const geometry_msgs::msg::Point32 point_transformed =
         autoware_utils::transform_point(point, object.kinematics.pose_with_covariance.pose);
-      //geometry_msgs::msg::Pose point2d;
-      //point2d.position.x = point_transformed.x;
-      //point2d.position.y = point_transformed.y;
       cx += point_transformed.x;
       cy += point_transformed.y;
       cz += point_transformed.z;
@@ -638,26 +637,22 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       }
     }
 
-    if (point_in_polygon) {
-      // check if the centroid of the cluster is above the lanelet
-
+    // filter the object under the lanelet
+    if (filter_settings_.filter_object_under_lanelet && point_in_polygon) {
       const int point_num = object.shape.footprint.points.size();
       cx /= point_num;
       cy /= point_num;
-      cz /= point_num;
-
-      const Eigen::Vector3d query_point(cx, cy, cz);
-      query_points_.push_back(query_point);
+      cz /= point_num; // use it to determined the closest lanelet
 
       std::optional<lanelet::ConstLanelet> nearest_lanelet;
       double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
 
-      // search the nearest lanelet in the z axis in case roads are layered
+      // search for the nearest lanelet along the z-axis in case roads are layered
       for (const auto & candidate_lanelet : lanelets_containing_cluster_points) {
         const lanelet::ConstLineString3d line = candidate_lanelet.leftBound();
         if (line.size() == 0) continue;
 
-        // assuming the roads have enough height to distinguish each others
+        // assuming the roads have enough height difference to distinguish each other
         const double diff_z = cz - line[0].z();
         const double dist_z = diff_z * diff_z;
 
@@ -668,22 +663,29 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
         }
       }
 
-      if (false && nearest_lanelet) {
-        const double offset = std::abs(max_z-cz);
+      if (nearest_lanelet) {
+        // create the query point based on the centroid and max height of the cluster
+        const Eigen::Vector3d query_point(cx, cy, max_z + object.shape.dimensions.z * 0.5);
+        query_points_.push_back(query_point);
 
-        if (true){
-          std::cout << "checking by segment" << std::endl;
+        if (false){
+          /*
+            it seems isPointAboveLaneletSegment is not much faster compare to the isPointAboveLaneletMesh.
+            so I will remove this part.
+          */
           // we might check both sides and then `AND` the result
-          return isPointAboveLaneletSegment(query_point, nearest_lanelet.value().leftBound(), offset);
+          return isPointAboveLaneletSegment(query_point, nearest_lanelet.value().leftBound());
         } else {
-          std::cout << "checking by triangle polygon" << std::endl;
-          return isPointAboveLaneletMesh(query_point, nearest_lanelet.value(), offset);
+          // check if the query point is above the lanelet
+          return isPointAboveLaneletMesh(query_point, nearest_lanelet.value());
         }
       } else {
         std::cout << "no lanelet checking" << std::endl;
         // use the result of isInPolygon
         return true;
       }
+    } else {
+      return point_in_polygon;
     }
 
     return false;

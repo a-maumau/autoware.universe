@@ -108,6 +108,7 @@ private:
     bool lanelet_direction_filter;
     double lanelet_direction_filter_velocity_yaw_threshold;
     double lanelet_direction_filter_object_speed_threshold;
+    bool filter_object_under_lanelet;
     bool debug;
     double lanelet_extra_margin;
     bool use_height_threshold;
