@@ -194,81 +194,6 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3>& triangle
     return normal.normalized();
 }
 
-// check the query point is whether above the lanelet's Linestring segment's plane
-bool isPointAboveLaneletSegment(
-  const Eigen::Vector3d& query_point, const lanelet::ConstLineString3d & line)
-{
-  if (line.size() < 2) {
-    return true;
-  }
-
-  // search the nearest point from the query point
-  //double min_point_dist = std::numeric_limits<double>::infinity();
-  //size_t min_index = 0;
-  //for (size_t i = 0; i < line.size(); ++i) {
-  //  const double diff_x  = (line[i].x()-query_point.x());
-  //  const double diff_y  = (line[i].y()-query_point.y());
-  //  const double diff_z  = (line[i].z()-query_point.z());
-  //  const double dist = diff_x*diff_x+diff_y*diff_y+diff_z*diff_z;
-  //  if (dist < min_point_dist) {
-  //    min_point_dist = dist;
-  //    min_index = i;
-  //  }
-  //}
-
-  double min_dist = std::numeric_limits<double>::infinity();
-  double min_abs_dist = std::numeric_limits<double>::infinity();
-  // calculate the projection and use the nearest plane to
-  //std::cout << "line size: " << line.size() << std::endl;
-
-  // use the two segments which is created by the nearest point
-  //for (size_t i = std::max(static_cast<size_t>(0), min_index-1); i + 1 < line.size() && i <= min_index+1; ++i) {
-  for (size_t i = 0; i < line.size()-1; ++i) {
-    //std::cout << "(" << i << ", " << i+1 << ")" << std::endl;
-    const lanelet::ConstPoint3d & a = line[i];
-    const lanelet::ConstPoint3d & b = line[i + 1];
-
-    const Eigen::Vector3d pa(a.x(), a.y(), a.z());
-    const Eigen::Vector3d pb(b.x(), b.y(), b.z());
-
-    Eigen::Vector3d ab_unit_vec = pb - pa;
-    if (ab_unit_vec.norm() < 1e-6) continue;
-    ab_unit_vec = ab_unit_vec.normalized();
-
-    const Eigen::Vector3d up(0, 0, 1);
-    Eigen::Vector3d side = ab_unit_vec.cross(up);
-    // in case of ab angled near to z axis
-    if (side.norm() < 1e-6) continue;
-
-    // calc normal vector of x-y plane that is tilted to ab
-    Eigen::Vector3d normal = side.cross(ab_unit_vec).normalized();
-    // ensure normal vector towards +Z
-    if (normal.z() < 0) normal *= -1;
-
-    // adjust the query point if needed by the offset
-    // this is aiming the case there are outlier points in the cluster with relative large z value
-    // since the current euclidean cluster is doing in the work in 2D,
-    // cluster may contain some relatively large z points compare to the centroid
-    //Eigen::Vector3d aq = (query_point + offset * normal) - pa;
-    Eigen::Vector3d aq = query_point - pa;
-    double signed_dist = aq.dot(normal);
-
-    // search the nearest face by the 
-    if (std::abs(signed_dist) < min_abs_dist) {
-      min_abs_dist = std::abs(signed_dist);
-      min_dist = signed_dist;
-    }
-  }
-
-  // if we can't find 
-  if (min_abs_dist == std::numeric_limits<double>::infinity()) {
-    return true;
-  }
-
-  if (min_dist < 0) return false;
-  else return true;
-}
-
 // checks whether a point is located above the lanelet triangle plane
 // that is closest in the perpendicular direction
 bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet)
@@ -371,6 +296,7 @@ void ObjectLaneletFilterNode::objectCallback(
     }
   }
 
+  /*
   // debug publish of query points
   pcl::PointCloud<pcl::PointXYZRGB> query_points_in_map_ptr_rgb;
   for (std::size_t i = 0; i < query_points_.size(); i++) {
@@ -389,6 +315,7 @@ void ObjectLaneletFilterNode::objectCallback(
   query_points_in_map.header.frame_id = "map";//input_msg->header.frame_id;
   debug_query_point_pub_->publish(query_points_in_map);
   query_points_.clear();
+  */
 
   object_pub_->publish(output_object_msg);
   published_time_publisher_->publish_if_subscribed(object_pub_, output_object_msg.header.stamp);
@@ -793,15 +720,9 @@ bool ObjectLaneletFilterNode::isCentroidAboveLanelet(
   if (nearest_lanelet) {
     // create the query point based on the centroid and max height of the cluster
     const Eigen::Vector3d query_point(cx, cy, cluster_top_z);
-    query_points_.push_back(query_point);
+    //query_points_.push_back(query_point);
 
-    if (false){
-      // we might check both sides and then `AND` the result
-      return isPointAboveLaneletSegment(query_point, nearest_lanelet.value().leftBound());
-    } else {
-      // check if the query point is above the lanelet
-      return isPointAboveLaneletMesh(query_point, nearest_lanelet.value());
-    }
+    return isPointAboveLaneletMesh(query_point, nearest_lanelet.value());
   }
 
   return false;
