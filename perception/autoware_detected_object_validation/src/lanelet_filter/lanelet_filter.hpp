@@ -133,6 +133,9 @@ private:
   bool isSameDirectionWithLanelets(
     const autoware_perception_msgs::msg::DetectedObject & object,
     const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree);
+  bool isCentroidAboveLanelet(
+    const std::vector<lanelet::ConstLanelet> & lanelets, const double & cx, const double & cy,
+    const double & cz, const double & cluster_top_z);
   geometry_msgs::msg::Polygon setFootprint(const autoware_perception_msgs::msg::DetectedObject &);
 
   lanelet::BasicPolygon2d getPolygon(const lanelet::ConstLanelet & lanelet);

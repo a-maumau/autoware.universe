@@ -21,7 +21,7 @@
         object_speed_threshold: 3.0 # [m/s]
       # filter the unknown object under the lanelets
       filter_object_under_lanelet:
-        enabled: false
+        enabled: true
 
       debug: false
       lanelet_extra_margin: 0.0

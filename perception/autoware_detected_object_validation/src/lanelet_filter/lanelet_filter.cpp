@@ -296,7 +296,6 @@ bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::Const
   return min_dist > 0;
 }
 
-
 void ObjectLaneletFilterNode::mapCallback(
   const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr map_msg)
 {
@@ -610,10 +609,10 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
     // for centroid of the cluster
     double cx = 0.0;
     double cy = 0.0;
-    double cz = 0.0;
+    double cz = 0.0; // use it to determined the closest lanelet
     double max_z = std::numeric_limits<double>::lowest();
 
-    bool point_in_polygon = false;
+    bool is_point_in_polygon = false;
     std::vector<lanelet::ConstLanelet> lanelets_containing_cluster_points;
 
     // if object do not have bounding box, check each footprint is inside polygon
@@ -627,23 +626,30 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
 
       for (const auto & candidate : candidates) {
         if (isInPolygon(point_transformed.x, point_transformed.y, candidate.second.polygon, 0.0)) {
-          // original implementation
-          //return true;
-          // store the lanelet for checking the face
-          lanelets_containing_cluster_points.push_back(candidate.second.lanelet);
-          point_in_polygon = true;
-          break;
+          if (filter_settings_.filter_object_under_lanelet){
+            lanelets_containing_cluster_points.push_back(candidate.second.lanelet);
+            is_point_in_polygon = true;
+            break;
+          } else {
+            return true;
+          }
         }
       }
     }
 
+    // for reproducing the original impl.
+    //return false;
+
     // filter the object under the lanelet
-    if (filter_settings_.filter_object_under_lanelet && point_in_polygon) {
+    if (filter_settings_.filter_object_under_lanelet && is_point_in_polygon) {
       const int point_num = object.shape.footprint.points.size();
       cx /= point_num;
       cy /= point_num;
-      cz /= point_num; // use it to determined the closest lanelet
+      cz /= point_num;
 
+      return isCentroidAboveLanelet(lanelets_containing_cluster_points, cx, cy, cz,
+        max_z + object.shape.dimensions.z * 0.5);
+      /*
       std::optional<lanelet::ConstLanelet> nearest_lanelet;
       double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
 
@@ -669,10 +675,10 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
         query_points_.push_back(query_point);
 
         if (false){
-          /*
-            it seems isPointAboveLaneletSegment is not much faster compare to the isPointAboveLaneletMesh.
-            so I will remove this part.
-          */
+          //
+          //  it seems isPointAboveLaneletSegment is not much faster compare to the isPointAboveLaneletMesh.
+          //  so I will remove this part.
+          //
           // we might check both sides and then `AND` the result
           return isPointAboveLaneletSegment(query_point, nearest_lanelet.value().leftBound());
         } else {
@@ -684,11 +690,10 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
         // use the result of isInPolygon
         return true;
       }
-    } else {
-      return point_in_polygon;
+      */
     }
 
-    return false;
+    return is_point_in_polygon;
   }
 }
 
@@ -756,6 +761,46 @@ bool ObjectLaneletFilterNode::isSameDirectionWithLanelets(
 
     if (abs_norm_delta_yaw < filter_settings_.lanelet_direction_filter_velocity_yaw_threshold) {
       return true;
+    }
+  }
+
+  return false;
+}
+
+bool ObjectLaneletFilterNode::isCentroidAboveLanelet(
+  const std::vector<lanelet::ConstLanelet> & lanelets, const double & cx, const double & cy,
+  const double & cz, const double & cluster_top_z)
+{
+  std::optional<lanelet::ConstLanelet> nearest_lanelet;
+  double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
+
+  // search for the nearest lanelet along the z-axis in case roads are layered
+  for (const auto & candidate_lanelet : lanelets) {
+    const lanelet::ConstLineString3d line = candidate_lanelet.leftBound();
+    if (line.size() == 0) continue;
+
+    // assuming the roads have enough height difference to distinguish each other
+    const double diff_z = cz - line[0].z();
+    const double dist_z = diff_z * diff_z;
+
+    // use the closest lanelet in z axis
+    if (dist_z < closest_lanelet_z_dist) {
+      closest_lanelet_z_dist = dist_z;
+      nearest_lanelet = candidate_lanelet;
+    }
+  }
+
+  if (nearest_lanelet) {
+    // create the query point based on the centroid and max height of the cluster
+    const Eigen::Vector3d query_point(cx, cy, cluster_top_z);
+    query_points_.push_back(query_point);
+
+    if (false){
+      // we might check both sides and then `AND` the result
+      return isPointAboveLaneletSegment(query_point, nearest_lanelet.value().leftBound());
+    } else {
+      // check if the query point is above the lanelet
+      return isPointAboveLaneletMesh(query_point, nearest_lanelet.value());
     }
   }
 
