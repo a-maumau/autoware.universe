@@ -196,7 +196,8 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3>& triangle
 
 // checks whether a point is located above the lanelet triangle plane
 // that is closest in the perpendicular direction
-bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet)
+bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet
+  ,const double & offset, std::vector<Eigen::Vector3d> & query_points)
 {
   TriangleMesh mesh = createTriangleMeshFromLanelet(lanelet);
 
@@ -207,8 +208,9 @@ bool isPointAboveLaneletMesh(const Eigen::Vector3d & point, const lanelet::Const
   for (const auto& tri : mesh) {
     Eigen::Vector3d plane_normal_vec = computeFaceNormal(tri);
     // use offset for outlier points to take into account
-    //Eigen::Vector3d vec_to_point = (point + offset * plane_normal_vec) - tri[0];
-    Eigen::Vector3d vec_to_point = point - tri[0];
+    Eigen::Vector3d vec_to_point = (point + offset * plane_normal_vec) - tri[0];
+    //Eigen::Vector3d vec_to_point = point - tri[0];
+    query_points.push_back(point+ offset* plane_normal_vec);
     double signed_dist = plane_normal_vec.dot(vec_to_point);
 
     const double abs_dist = std::abs(signed_dist);
@@ -296,7 +298,6 @@ void ObjectLaneletFilterNode::objectCallback(
     }
   }
 
-  /*
   // debug publish of query points
   pcl::PointCloud<pcl::PointXYZRGB> query_points_in_map_ptr_rgb;
   for (std::size_t i = 0; i < query_points_.size(); i++) {
@@ -315,7 +316,6 @@ void ObjectLaneletFilterNode::objectCallback(
   query_points_in_map.header.frame_id = "map";//input_msg->header.frame_id;
   debug_query_point_pub_->publish(query_points_in_map);
   query_points_.clear();
-  */
 
   object_pub_->publish(output_object_msg);
   published_time_publisher_->publish_if_subscribed(object_pub_, output_object_msg.header.stamp);
@@ -575,7 +575,7 @@ bool ObjectLaneletFilterNode::isObjectOverlapLanelets(
       cz /= point_num;
 
       return isCentroidAboveLanelet(lanelets_containing_cluster_points, cx, cy, cz,
-        max_z + object.shape.dimensions.z * 0.5);
+        /*max_z + object.shape.dimensions.z * 0.5*/object.shape.dimensions.z * 0.5);
       /*
       std::optional<lanelet::ConstLanelet> nearest_lanelet;
       double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
@@ -719,10 +719,12 @@ bool ObjectLaneletFilterNode::isCentroidAboveLanelet(
 
   if (nearest_lanelet) {
     // create the query point based on the centroid and max height of the cluster
-    const Eigen::Vector3d query_point(cx, cy, cluster_top_z);
+    //const Eigen::Vector3d query_point(cx, cy, cluster_top_z);
+    const Eigen::Vector3d query_point(cx, cy, cz);
+    const double offset = cluster_top_z;
     //query_points_.push_back(query_point);
 
-    return isPointAboveLaneletMesh(query_point, nearest_lanelet.value());
+    return isPointAboveLaneletMesh(query_point, nearest_lanelet.value(), offset, query_points_);
   }
 
   return false;

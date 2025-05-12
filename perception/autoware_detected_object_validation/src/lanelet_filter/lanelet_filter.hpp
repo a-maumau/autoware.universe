@@ -84,7 +84,7 @@ private:
 
   // debug
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr debug_query_point_pub_;
-  //std::vector<Eigen::Vector3d> query_points_;
+  std::vector<Eigen::Vector3d> query_points_;
 
   std::unique_ptr<autoware_utils::DebugPublisher> debug_publisher_{nullptr};
   std::unique_ptr<autoware_utils::StopWatch<std::chrono::milliseconds>> stop_watch_ptr_;
