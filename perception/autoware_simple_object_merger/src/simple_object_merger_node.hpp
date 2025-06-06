@@ -16,6 +16,7 @@
 #define SIMPLE_OBJECT_MERGER_NODE_HPP_
 
 #include "autoware_utils/ros/transform_listener.hpp"
+#include "common_base.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "autoware_perception_msgs/msg/detected_objects.hpp"
@@ -34,20 +35,22 @@ namespace autoware::simple_object_merger
 using autoware_perception_msgs::msg::DetectedObject;
 using autoware_perception_msgs::msg::DetectedObjects;
 
-class SimpleObjectMergerNode : public rclcpp::Node
+class SimpleObjectMergerNode
+: public SimpleObjectMergerBase<autoware_perception_msgs::msg::DetectedObjects>
 {
 public:
   explicit SimpleObjectMergerNode(const rclcpp::NodeOptions & node_options);
 
-  struct NodeParam
+  /*struct NodeParam
   {
     double update_rate_hz{};
     double timeout_threshold{};
     std::vector<std::string> topic_names{};
     std::string new_frame_id{};
-  };
+  };*/
 
 private:
+  /*
   // Subscriber
   rclcpp::Subscription<DetectedObjects>::SharedPtr sub_objects_{};
   std::vector<rclcpp::Subscription<DetectedObjects>::SharedPtr> sub_objects_array{};
@@ -60,12 +63,14 @@ private:
     message_filters::sync_policies::ApproximateTime<DetectedObjects, DetectedObjects>;
   using Sync = message_filters::Synchronizer<SyncPolicy>;
   typename std::shared_ptr<Sync> sync_ptr_;
+  */
 
   // Process callbacks
   void approximateMerger(
     const DetectedObjects::ConstSharedPtr & object_msg0,
-    const DetectedObjects::ConstSharedPtr & object_msg1);
+    const DetectedObjects::ConstSharedPtr & object_msg1) override;
 
+  /*
   void onData(const DetectedObjects::ConstSharedPtr msg, size_t array_number);
 
   // Data Buffer
@@ -93,6 +98,7 @@ private:
 
   // Core
   size_t input_topic_size;
+  */
 };
 
 }  // namespace autoware::simple_object_merger

@@ -1,4 +1,4 @@
-// Copyright 2023 TIER IV, Inc.
+// Copyright 2025 TIER IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "simple_object_merger_node.hpp"
+#include "common_base.hpp"
 
+#include "autoware_perception_msgs/msg/detected_objects.hpp"
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 #include <memory>
@@ -22,7 +23,6 @@
 
 namespace
 {
-/*
 template <class T>
 bool update_param(
   const std::vector<rclcpp::Parameter> & params, const std::string & name, T & value)
@@ -39,34 +39,6 @@ bool update_param(
   value = itr->template get_value<T>();
   return true;
 }
-*/
-
-/*
-autoware_perception_msgs::msg::DetectedObjects::SharedPtr getTransformedObjects(
-  autoware_perception_msgs::msg::DetectedObjects::ConstSharedPtr objects,
-  const std::string & target_frame_id,
-  geometry_msgs::msg::TransformStamped::ConstSharedPtr transform)
-{
-  autoware_perception_msgs::msg::DetectedObjects::SharedPtr output_objects =
-    std::const_pointer_cast<autoware_perception_msgs::msg::DetectedObjects>(objects);
-
-  if (objects->header.frame_id == target_frame_id) {
-    return output_objects;
-  }
-
-  output_objects->header.frame_id = target_frame_id;
-  for (auto & object : output_objects->objects) {
-    // convert by tf
-    geometry_msgs::msg::PoseStamped pose_stamped{};
-    pose_stamped.pose = object.kinematics.pose_with_covariance.pose;
-    geometry_msgs::msg::PoseStamped transformed_pose_stamped{};
-    tf2::doTransform(pose_stamped, transformed_pose_stamped, *transform);
-    object.kinematics.pose_with_covariance.pose = transformed_pose_stamped.pose;
-  }
-  return output_objects;
-}
-*/
-
 }  // namespace
 
 namespace autoware::simple_object_merger
@@ -76,13 +48,14 @@ using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::nanoseconds;
 
-SimpleObjectMergerNode::SimpleObjectMergerNode(const rclcpp::NodeOptions & node_options)
-: SimpleObjectMergerBase<DetectedObjects>("simple_object_merger", node_options)
+template <class ObjsMsgType>
+SimpleObjectMergerBase<ObjsMsgType>::SimpleObjectMergerBase(
+  const std::string & node_name, const rclcpp::NodeOptions & node_options)
+: Node(node_name, node_options)
 {
-  /*
   // Parameter Server
   set_param_res_ = this->add_on_set_parameters_callback(
-    std::bind(&SimpleObjectMergerNode::onSetParam, this, std::placeholders::_1));
+    std::bind(&SimpleObjectMergerBase::onSetParam, this, std::placeholders::_1));
 
   // Node Parameter
   node_param_.update_rate_hz = declare_parameter<double>("update_rate_hz");
@@ -112,7 +85,7 @@ SimpleObjectMergerNode::SimpleObjectMergerNode(const rclcpp::NodeOptions & node_
       this, node_param_.topic_names.at(1), rclcpp::QoS{1}.best_effort().get_rmw_qos_profile());
     sync_ptr_ = std::make_shared<Sync>(SyncPolicy(10), input0_, input1_);
     sync_ptr_->registerCallback(std::bind(
-      &SimpleObjectMergerNode::approximateMerger, this, std::placeholders::_1,
+      &SimpleObjectMergerBase::approximateMerger, this, std::placeholders::_1,
       std::placeholders::_2));
   } else {
     // Trigger the process by timer
@@ -121,62 +94,63 @@ SimpleObjectMergerNode::SimpleObjectMergerNode(const rclcpp::NodeOptions & node_
 
     // subscriber
     for (size_t i = 0; i < input_topic_size; i++) {
-      std::function<void(const DetectedObjects::ConstSharedPtr msg)> func =
-        std::bind(&SimpleObjectMergerNode::onData, this, std::placeholders::_1, i);
-      sub_objects_array.at(i) = create_subscription<DetectedObjects>(
+      std::function<void(const typename ObjsMsgType::ConstSharedPtr msg)> func =
+        std::bind(&SimpleObjectMergerBase::onData, this, std::placeholders::_1, i);
+      sub_objects_array.at(i) = create_subscription<ObjsMsgType>(
         node_param_.topic_names.at(i), rclcpp::QoS{1}.best_effort(), func);
     }
 
     // process callback
     const auto update_period_ns = rclcpp::Rate(node_param_.update_rate_hz).period();
     timer_ = rclcpp::create_timer(
-      this, get_clock(), update_period_ns, std::bind(&SimpleObjectMergerNode::onTimer, this));
+      this, get_clock(), update_period_ns, std::bind(&SimpleObjectMergerBase::onTimer, this));
   }
 
   // Publisher
-  pub_objects_ = create_publisher<DetectedObjects>("~/output/objects", rclcpp::QoS{1}.reliable());
-  */
+  pub_objects_ = create_publisher<ObjsMsgType>("~/output/objects", rclcpp::QoS{1}.reliable());
 }
 
-void SimpleObjectMergerNode::approximateMerger(
-  const DetectedObjects::ConstSharedPtr & object_msg0,
-  const DetectedObjects::ConstSharedPtr & object_msg1)
+template <class ObjsMsgType>
+typename ObjsMsgType::SharedPtr SimpleObjectMergerBase<ObjsMsgType>::getTransformedObjects(
+  typename ObjsMsgType::ConstSharedPtr objects, const std::string & target_frame_id,
+  geometry_msgs::msg::TransformStamped::ConstSharedPtr transform)
 {
-  transform_ = transform_listener_->get_transform(
-    node_param_.new_frame_id, object_msg0->header.frame_id, object_msg0->header.stamp,
-    rclcpp::Duration::from_seconds(0.01));
-  DetectedObjects::SharedPtr transformed_objects0 =
-    getTransformedObjects(object_msg0, node_param_.new_frame_id, transform_);
+  typename ObjsMsgType::SharedPtr output_objects = std::const_pointer_cast<ObjsMsgType>(objects);
 
-  // input1
-  transform_ = transform_listener_->get_transform(
-    node_param_.new_frame_id, object_msg1->header.frame_id, object_msg1->header.stamp,
-    rclcpp::Duration::from_seconds(0.01));
-  DetectedObjects::SharedPtr transformed_objects1 =
-    getTransformedObjects(object_msg1, node_param_.new_frame_id, transform_);
+  if (objects->header.frame_id == target_frame_id) {
+    return output_objects;
+  }
 
-  // merge
+  output_objects->header.frame_id = target_frame_id;
+  for (auto & object : output_objects->objects) {
+    // convert by tf
+    geometry_msgs::msg::PoseStamped pose_stamped{};
+    pose_stamped.pose = object.kinematics.pose_with_covariance.pose;
+    geometry_msgs::msg::PoseStamped transformed_pose_stamped{};
+    tf2::doTransform(pose_stamped, transformed_pose_stamped, *transform);
+    object.kinematics.pose_with_covariance.pose = transformed_pose_stamped.pose;
+  }
 
-  DetectedObjects output_objects;
-
-  output_objects.header = object_msg0->header;
-  output_objects.header.frame_id = node_param_.new_frame_id;
-  output_objects.objects.reserve(
-    transformed_objects0->objects.size() + transformed_objects1->objects.size());
-  output_objects.objects = transformed_objects0->objects;
-  output_objects.objects.insert(
-    output_objects.objects.end(), std::begin(transformed_objects1->objects),
-    std::end(transformed_objects1->objects));
-  pub_objects_->publish(output_objects);
+  return output_objects;
 }
 
-/*
-void SimpleObjectMergerNode::onData(DetectedObjects::ConstSharedPtr msg, const size_t array_number)
+template <class ObjsMsgType>
+void SimpleObjectMergerBase<ObjsMsgType>::approximateMerger(
+  [[maybe_unused]] const typename ObjsMsgType::ConstSharedPtr & object_msg0,
+  [[maybe_unused]] const typename ObjsMsgType::ConstSharedPtr & object_msg1)
+{
+  // This must be overridden
+}
+
+template <class ObjsMsgType>
+void SimpleObjectMergerBase<ObjsMsgType>::onData(
+  typename ObjsMsgType::ConstSharedPtr msg, const size_t array_number)
 {
   objects_data_.at(array_number) = msg;
 }
 
-rcl_interfaces::msg::SetParametersResult SimpleObjectMergerNode::onSetParam(
+template <class ObjsMsgType>
+rcl_interfaces::msg::SetParametersResult SimpleObjectMergerBase<ObjsMsgType>::onSetParam(
   const std::vector<rclcpp::Parameter> & params)
 {
   rcl_interfaces::msg::SetParametersResult result;
@@ -200,7 +174,8 @@ rcl_interfaces::msg::SetParametersResult SimpleObjectMergerNode::onSetParam(
   return result;
 }
 
-bool SimpleObjectMergerNode::isDataReady()
+template <class ObjsMsgType>
+bool SimpleObjectMergerBase<ObjsMsgType>::isDataReady()
 {
   for (size_t i = 0; i < input_topic_size; i++) {
     if (!objects_data_.at(i)) {
@@ -212,13 +187,14 @@ bool SimpleObjectMergerNode::isDataReady()
   return true;
 }
 
-void SimpleObjectMergerNode::onTimer()
+template <class ObjsMsgType>
+void SimpleObjectMergerBase<ObjsMsgType>::onTimer()
 {
   if (!isDataReady()) {
     return;
   }
 
-  DetectedObjects output_objects;
+  ObjsMsgType output_objects;
   output_objects.header = objects_data_.at(0)->header;
   output_objects.header.frame_id = node_param_.new_frame_id;
 
@@ -238,7 +214,7 @@ void SimpleObjectMergerNode::onTimer()
         node_param_.new_frame_id, objects_data_.at(i)->header.frame_id,
         objects_data_.at(i)->header.stamp, rclcpp::Duration::from_seconds(0.01));
 
-      DetectedObjects::SharedPtr transformed_objects =
+      typename ObjsMsgType::SharedPtr transformed_objects =
         getTransformedObjects(objects_data_.at(i), node_param_.new_frame_id, transform_);
 
       output_objects.objects.insert(
@@ -254,7 +230,8 @@ void SimpleObjectMergerNode::onTimer()
   pub_objects_->publish(output_objects);
 }
 
-bool SimpleObjectMergerNode::shouldLogThrottle(
+template <class ObjsMsgType>
+bool SimpleObjectMergerBase<ObjsMsgType>::shouldLogThrottle(
   size_t index, const rclcpp::Time & now, std::vector<rclcpp::Time> & last_log_times,
   double throttle_interval_sec)
 {
@@ -264,9 +241,8 @@ bool SimpleObjectMergerNode::shouldLogThrottle(
   }
   return false;
 }
-*/
+
+// explicit instantiation
+template class SimpleObjectMergerBase<autoware_perception_msgs::msg::DetectedObjects>;
 
 }  // namespace autoware::simple_object_merger
-
-#include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(autoware::simple_object_merger::SimpleObjectMergerNode)

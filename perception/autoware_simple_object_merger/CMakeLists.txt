@@ -7,6 +7,7 @@ autoware_package()
 
 # Targets
 ament_auto_add_library(${PROJECT_NAME} SHARED
+  src/common_base.cpp
   src/simple_object_merger_node.cpp
 )
 
