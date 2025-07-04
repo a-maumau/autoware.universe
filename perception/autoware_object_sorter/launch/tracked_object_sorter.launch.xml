@@ -1,6 +1,6 @@
 <launch>
   <!-- Input -->
-  <arg name="input/objects" default="~/input/objects"/>
+  <arg name="input/objects" default="/perception/object_recognition/tracking/radar/far_objects"/>
   <!-- Output -->
   <arg name="output/objects" default="~/output/objects"/>
   <!-- Parameter -->

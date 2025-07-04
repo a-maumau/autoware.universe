@@ -15,7 +15,8 @@
 #ifndef OBJECT_SORTER_BASE_HPP_
 #define OBJECT_SORTER_BASE_HPP_
 
-#include "rclcpp/rclcpp.hpp"
+#include <autoware_utils_tf/transform_listener.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include <string>
 #include <vector>
@@ -51,6 +52,8 @@ private:
   OnSetParametersCallbackHandle::SharedPtr set_param_res_;
   rcl_interfaces::msg::SetParametersResult onSetParam(
     const std::vector<rclcpp::Parameter> & params);
+
+  tf2_ros::Buffer tf_buffer_;
 
   // Parameter
   NodeParam node_param_{};

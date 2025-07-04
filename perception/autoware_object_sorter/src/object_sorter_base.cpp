@@ -18,6 +18,7 @@
 
 #include <autoware_perception_msgs/msg/detected_objects.hpp>
 #include <autoware_perception_msgs/msg/tracked_objects.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <memory>
 #include <string>
@@ -50,7 +51,7 @@ using autoware_perception_msgs::msg::DetectedObjects;
 template <typename ObjsMsgType>
 ObjectSorterBase<ObjsMsgType>::ObjectSorterBase(
   const std::string & node_name, const rclcpp::NodeOptions & node_options)
-: Node(node_name, node_options)
+: Node(node_name, node_options), tf_buffer_(this->get_clock())
 {
   // Parameter Server
   set_param_res_ = this->add_on_set_parameters_callback(
@@ -72,7 +73,8 @@ ObjectSorterBase<ObjsMsgType>::ObjectSorterBase(
 }
 
 template <typename ObjsMsgType>
-void ObjectSorterBase<ObjsMsgType>::objectCallback(const typename ObjsMsgType::ConstSharedPtr msg)
+void ObjectSorterBase<ObjsMsgType>::objectCallback(
+  const typename ObjsMsgType::ConstSharedPtr input_msg)
 {
   // Guard
   if (pub_output_objects_->get_subscription_count() < 1) {
@@ -80,9 +82,29 @@ void ObjectSorterBase<ObjsMsgType>::objectCallback(const typename ObjsMsgType::C
   }
 
   ObjsMsgType output_objects;
-  output_objects.header = msg->header;
+  output_objects.header = input_msg->header;
 
-  for (const auto & object : msg->objects) {
+  //// Transform from frame_id to base_link
+  // transform_ = transform_listener_->get_transform(
+  //   "base_link", input_msg->header.frame_id, input_msg->header.stamp,
+  //   rclcpp::Duration::from_seconds(0.01));
+  //// Transform from base_link to frame_id
+  //// use ego position to compute efficiently
+  // transform_ = transform_listener_->get_transform(
+  //   input_msg->header.frame_id, "base_link", input_msg->header.stamp,
+  //   rclcpp::Duration::from_seconds(0.01));
+
+  geometry_msgs::msg::Vector3 ego_pos;
+  try {
+    const geometry_msgs::msg::TransformStamped ts =
+      tf_buffer_.lookupTransform(input_msg->header.frame_id, "base_link", rclcpp::Time(0));
+    ego_pos = ts.transform.translation;
+  } catch (tf2::TransformException & ex) {
+    RCLCPP_WARN(this->get_logger(), "Transform lookup failed: %s", ex.what());
+    return;
+  }
+
+  for (const auto & object : input_msg->objects) {
     // Filter by velocity
     if (
       std::abs(autoware_utils_geometry::calc_norm(
@@ -91,9 +113,13 @@ void ObjectSorterBase<ObjsMsgType>::objectCallback(const typename ObjsMsgType::C
       continue;
     }
 
+    const double object_pos_x = object.kinematics.pose_with_covariance.pose.position.x - ego_pos.x;
+    const double object_pos_y = object.kinematics.pose_with_covariance.pose.position.y - ego_pos.y;
+
     // Filter by range
-    const auto & position = object.kinematics.pose_with_covariance.pose.position;
-    const auto object_sq_dist = position.x * position.x + position.y * position.y;
+    // const auto & position = object.kinematics.pose_with_covariance.pose.position;
+    // const auto object_sq_dist = position.x * position.x + position.y * position.y;
+    const auto object_sq_dist = object_pos_x * object_pos_x + object_pos_y * object_pos_y;
     if (object_sq_dist < range_threshold_sq_) {
       // Short range object
       continue;
