@@ -22,6 +22,7 @@
 #include "autoware_utils/ros/published_time_publisher.hpp"
 #include "autoware_utils/system/stop_watch.hpp"
 
+#include <autoware_utils/system/time_keeper.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include "autoware_map_msgs/msg/lanelet_map_bin.hpp"
@@ -36,7 +37,9 @@
 
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -52,14 +55,44 @@ namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 using Point2d = bg::model::point<double, 2, bg::cs::cartesian>;
 using Box = boost::geometry::model::box<Point2d>;
+using RtreeAlgo = bgi::rstar<16>;
 
+// Store box, triangle index, and pointer to triangle
+// struct RTreeValue {
+//    Box box;
+//    size_t triangle_idx; // Index in mesh vector
+//};
+using RTreeValue = std::pair<Box, size_t>;
+
+// Structure to represent a triangle (2D & 3D)
+struct Triangle
+{
+  std::array<Point2d, 3> points2d;
+  std::array<Eigen::Vector3d, 3> points3d;
+  size_t index_in_mesh;  // For reference if needed
+};
+using TriangleMesh = std::vector<Triangle>;
+
+struct LaneletPolygonData
+{
+  TriangleMesh mesh;
+  bgi::rtree<RTreeValue, RtreeAlgo> rtree;
+};
+
+// used for storing a lanelet's polygon
+struct LaneletBox
+{
+  Box bbox;
+  lanelet::Lanelet lanelet;
+};
+
+// used for storing a la
 struct PolygonAndLanelet
 {
   lanelet::BasicPolygon2d polygon;
   lanelet::ConstLanelet lanelet;
 };
 using BoxAndLanelet = std::pair<Box, PolygonAndLanelet>;
-using RtreeAlgo = bgi::rstar<16>;
 
 template <typename ObjsMsgType, typename ObjMsgType>
 class ObjectLaneletFilterBase : public rclcpp::Node
@@ -67,6 +100,7 @@ class ObjectLaneletFilterBase : public rclcpp::Node
 public:
   explicit ObjectLaneletFilterBase(
     const std::string & node_name, const rclcpp::NodeOptions & node_options);
+  ~ObjectLaneletFilterBase();
 
 private:
   void objectCallback(const typename ObjsMsgType::ConstSharedPtr);
@@ -89,6 +123,18 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
+  std::vector<std::thread> worker_threads_;
+  // mutex for sharing the lanelet polygon mapper
+  std::mutex mtx_update_polygon_map_;
+  std::mutex mtx_polygon_map_access_;
+  // the lanelets polygon map that is used to lookup
+  std::unordered_map<lanelet::Id, LaneletPolygonData> lanelets_polygon_rtree_map_;
+  // currently we only need 1 for using and 1 for backgound update
+  static constexpr size_t buffer_size_ = 2;
+  std::array<std::unordered_map<lanelet::Id, LaneletPolygonData>, buffer_size_>
+    lanelets_polygon_rtree_map_buffer_;
+  size_t map_buffer_index_ = 0;
+
   utils::FilterTargetLabel filter_target_;
   double ego_base_height_ = 0.0;
   struct FilterSettings
@@ -109,8 +155,7 @@ private:
 
   bool filterObject(
     const ObjMsgType & transformed_object, const ObjMsgType & input_object,
-    const bg::index::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree,
-    ObjsMsgType & output_object_msg);
+    const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree, ObjsMsgType & output_object_msg);
   LinearRing2d getConvexHull(const ObjsMsgType &);
   Polygon2d getConvexHullFromObjectFootprint(const ObjMsgType & object);
   std::vector<BoxAndLanelet> getIntersectedLanelets(const LinearRing2d &);
@@ -127,6 +172,10 @@ private:
 
   lanelet::BasicPolygon2d getPolygon(const lanelet::ConstLanelet & lanelet);
   std::unique_ptr<autoware_utils::PublishedTimePublisher> published_time_publisher_;
+
+  rclcpp::Publisher<autoware_utils::ProcessingTimeDetail>::SharedPtr
+    detailed_processing_time_publisher_;
+  std::shared_ptr<autoware_utils::TimeKeeper> time_keeper_;
 };
 
 }  // namespace lanelet_filter

@@ -41,6 +41,8 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,7 +50,12 @@ namespace autoware::detected_object_validation
 {
 namespace lanelet_filter
 {
-using TriangleMesh = std::vector<std::array<Eigen::Vector3d, 3>>;
+using Polygon = bg::model::polygon<Point2d>;
+using LaneletEntry = std::pair<Box, lanelet::Lanelet>;
+using LaneletEntryMap = std::unordered_map<lanelet::Id, LaneletEntry>;
+
+// using TriangleMesh = std::vector<std::array<Eigen::Vector3d, 3>>;
+using autoware_utils::ScopedTimeTrack;
 
 template <typename ObjsMsgType, typename ObjMsgType>
 ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::ObjectLaneletFilterBase(
@@ -112,6 +119,21 @@ ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::ObjectLaneletFilterBase(
   if (filter_settings_.debug) {
     viz_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
       "~/debug/marker", rclcpp::QoS{1});
+  }
+
+  detailed_processing_time_publisher_ =
+    this->create_publisher<autoware_utils::ProcessingTimeDetail>(
+      "~/debug/processing_time_detail_ms", 1);
+  auto time_keeper = autoware_utils::TimeKeeper(detailed_processing_time_publisher_);
+  time_keeper_ = std::make_shared<autoware_utils::TimeKeeper>(time_keeper);
+}
+
+template <typename ObjsMsgType, typename ObjMsgType>
+ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::~ObjectLaneletFilterBase()
+{
+  // join all worker threads to ensure clean shutdown
+  for (auto & t : worker_threads_) {
+    if (t.joinable()) t.join();
   }
 }
 
@@ -182,8 +204,18 @@ TriangleMesh createTriangleMeshFromLanelet(const lanelet::ConstLanelet & lanelet
     //     .--.
     // a_l      a_r
     //
-    mesh.push_back({a_l, a_r, b_l});
-    mesh.push_back({b_r, b_l, a_r});
+    // mesh.push_back({a_l, a_r, b_l});
+    // mesh.push_back({b_r, b_l, a_r});
+    // Triangle 1
+    mesh.push_back(Triangle{
+      {Point2d(a_l.x(), a_l.y()), Point2d(a_r.x(), a_r.y()), Point2d(b_l.x(), b_l.y())},
+      {a_l, a_r, b_l},
+      mesh.size()});
+    // Triangle 2
+    mesh.push_back(Triangle{
+      {Point2d(b_r.x(), b_r.y()), Point2d(b_l.x(), b_l.y()), Point2d(a_r.x(), a_r.y())},
+      {b_r, b_l, a_r},
+      mesh.size()});
   }
 
   // triangulation of the remaining unmatched parts from the tail
@@ -201,8 +233,18 @@ TriangleMesh createTriangleMeshFromLanelet(const lanelet::ConstLanelet & lanelet
       const Eigen::Vector3d a_r(right[j - 1].x(), right[j - 1].y(), right[j - 1].z());
       const Eigen::Vector3d b_r(right[j].x(), right[j].y(), right[j].z());
 
-      mesh.push_back({b_l, a_l, b_r});
-      mesh.push_back({a_l, a_r, b_r});
+      // mesh.push_back({b_l, a_l, b_r});
+      // mesh.push_back({a_l, a_r, b_r});
+      //  Triangle 1
+      mesh.push_back(Triangle{
+        {Point2d(a_l.x(), a_l.y()), Point2d(a_r.x(), a_r.y()), Point2d(b_l.x(), b_l.y())},
+        {a_l, a_r, b_l},
+        mesh.size()});
+      // Triangle 2
+      mesh.push_back(Triangle{
+        {Point2d(b_r.x(), b_r.y()), Point2d(b_l.x(), b_l.y()), Point2d(a_r.x(), a_r.y())},
+        {b_r, b_l, a_r},
+        mesh.size()});
 
       --i;
       --j;
@@ -220,8 +262,18 @@ TriangleMesh createTriangleMeshFromLanelet(const lanelet::ConstLanelet & lanelet
       const Eigen::Vector3d a_r(right[j - 1].x(), right[j - 1].y(), right[j - 1].z());
       const Eigen::Vector3d b_r(right[j].x(), right[j].y(), right[j].z());
 
-      mesh.push_back({b_l, a_l, b_r});
-      mesh.push_back({a_l, a_r, b_r});
+      // mesh.push_back({b_l, a_l, b_r});
+      // mesh.push_back({a_l, a_r, b_r});
+      //  Triangle 1
+      mesh.push_back(Triangle{
+        {Point2d(a_l.x(), a_l.y()), Point2d(a_r.x(), a_r.y()), Point2d(b_l.x(), b_l.y())},
+        {a_l, a_r, b_l},
+        mesh.size()});
+      // Triangle 2
+      mesh.push_back(Triangle{
+        {Point2d(b_r.x(), b_r.y()), Point2d(b_l.x(), b_l.y()), Point2d(a_r.x(), a_r.y())},
+        {b_r, b_l, a_r},
+        mesh.size()});
 
       --i;
       --j;
@@ -239,6 +291,8 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3> & triangl
   Eigen::Vector3d normal = v1.cross(v2);
 
   // ensure the normal is pointing upward (Z+)
+  // NOTE: the triangle points are in CCW order, but there is no guarantee for
+  //   lanelet's left bound and right bound to be not crossing (break the CCW order).
   if (normal.z() < 0) {
     normal = -normal;
   }
@@ -246,8 +300,22 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3> & triangl
   return normal.normalized();
 }
 
+bool findNearestTriangle(
+  const LaneletPolygonData & data, const Point2d & query, Triangle & triangle)
+{
+  std::vector<RTreeValue> result;
+  data.rtree.query(boost::geometry::index::nearest(query, 1), std::back_inserter(result));
+  if (!result.empty()) {
+    triangle = data.mesh[result[0].second];
+
+    return true;
+  }
+  return false;
+}
+
 // checks whether a point is located above the lanelet triangle plane
 // that is closest in the perpendicular direction
+/*
 bool isPointAboveLaneletMesh(
   const Eigen::Vector3d & point, const lanelet::ConstLanelet & lanelet, const double & offset,
   const double & min_distance, const double & max_distance)
@@ -350,14 +418,140 @@ bool isPointAboveLaneletMesh(
 
   return false;
 }
+*/
+bool isPointAboveLaneletMesh(
+  const Eigen::Vector3d & point, const LaneletPolygonData & lanelet_data, const double & offset,
+  const double & min_distance, const double & max_distance)
+{
+  // if (mesh.empty()) return true;
+
+  const Point2d query_point2d(point.x(), point.y());
+  Triangle nearest_triangle;
+  if (!findNearestTriangle(lanelet_data, query_point2d, nearest_triangle)) {
+    // consider as above for safety
+    return true;
+  }
+
+  Eigen::Vector3d closest_normal;
+  const Eigen::Vector3d plane_normal_vec = computeFaceNormal(nearest_triangle.points3d);
+
+  // std::cos(M_PI / 3.0) -> 0.5;
+  // in some environment, or more recent c++, it can be constexpr
+  constexpr double cos_threshold = 0.5;
+  const double cos_of_normal_and_z = plane_normal_vec.dot(Eigen::Vector3d::UnitZ());
+
+  // if angle is too steep, consider as above for safety
+  if (cos_of_normal_and_z < cos_threshold) {
+    return true;
+  }
+
+  const Eigen::Vector3d vec_to_point = point - nearest_triangle.points3d[0];
+  const double distance_to_closest_surface = plane_normal_vec.dot(vec_to_point);
+
+  // Calculate object bounds relative to the closest surface
+  // The object extends +/- offset from its centroid along the surface normal
+  const double top_distance = distance_to_closest_surface + offset;
+  const double bottom_distance = distance_to_closest_surface - offset;
+
+  // Original intention: accept if either the object's top OR bottom is within the acceptable range
+  // This allows objects that are partially within the range to pass through
+  if (
+    (min_distance <= top_distance && top_distance <= max_distance) ||
+    (min_distance <= bottom_distance && bottom_distance <= max_distance)) {
+    return true;
+  }
+
+  return false;
+}
+
+bgi::rtree<RTreeValue, RtreeAlgo> buildRTreeFromMesh(const TriangleMesh & mesh)
+{
+  std::vector<RTreeValue> values;
+  for (size_t i = 0; i < mesh.size(); ++i) {
+    const auto & tri = mesh[i];
+    // Compute 2D bounding box of triangle
+    Box box;
+    bg::assign_inverse(box);
+    for (const auto & pt : tri.points2d) {
+      bg::expand(box, pt);
+    }
+    values.push_back(RTreeValue{box, i});
+  }
+  return bgi::rtree<RTreeValue, RtreeAlgo>(values.begin(), values.end());
+}
+
+std::unordered_map<lanelet::Id, LaneletPolygonData> buildLaneletPolygonMap(
+  lanelet::LaneletMapPtr lanelet_map_ptr,
+  std::unordered_map<lanelet::Id, LaneletPolygonData> & old_map)
+{
+  std::unordered_map<lanelet::Id, LaneletPolygonData> new_map;
+
+  for (const lanelet::Lanelet & lanelet : lanelet_map_ptr->laneletLayer) {
+    if (
+      lanelet.hasAttribute(lanelet::AttributeName::Subtype) &&
+      (lanelet.attribute(lanelet::AttributeName::Subtype).value() ==
+         lanelet::AttributeValueString::Road ||
+       lanelet.attribute(lanelet::AttributeName::Subtype).value() == "road_shoulder")) {
+      TriangleMesh mesh = createTriangleMeshFromLanelet(lanelet);
+
+      const lanelet::Id lanelet_id = lanelet.id();
+      auto it = old_map.find(lanelet_id);
+      if (it == old_map.end()) {
+        // create each r-tree for lanelet polygons
+        bgi::rtree<RTreeValue, RtreeAlgo> rtree = buildRTreeFromMesh(mesh);
+        new_map.emplace(lanelet_id, LaneletPolygonData{std::move(mesh), std::move(rtree)});
+      } else {
+        // if ID exist, reuse it
+        new_map.emplace(lanelet_id, it->second);
+      }
+    }
+  }
+
+  return new_map;
+}
 
 template <typename ObjsMsgType, typename ObjMsgType>
 void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::mapCallback(
   const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr map_msg)
 {
-  lanelet_frame_id_ = map_msg->header.frame_id;
-  lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
-  lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
+  // for the first time, run in single thread
+  // Note: In the current Autoware, there is no dynamic loading mechanism for vector map.
+  //  So this callback should run only once.
+  if (!lanelet_map_ptr_) {
+    lanelet_frame_id_ = map_msg->header.frame_id;
+    lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
+    lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
+
+    buildLaneletPolygonMap(lanelet_map_ptr_, lanelets_polygon_rtree_map_buffer_[map_buffer_index_]);
+  } else {
+    lanelet_frame_id_ = map_msg->header.frame_id;
+    lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
+    lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
+
+    worker_threads_.emplace_back([this]() {
+      // NOTE: blocking does not ensured the order. so if callback get called multiple time
+      //   in short period, it might break the data.
+      {
+        std::lock_guard<std::mutex> lock(mtx_update_polygon_map_);
+
+        size_t new_buffer_index = map_buffer_index_ + 1;
+        if (new_buffer_index >= buffer_size_) new_buffer_index = 0;
+
+        std::unordered_map<lanelet::Id, LaneletPolygonData> tmp_map = buildLaneletPolygonMap(
+          lanelet_map_ptr_, lanelets_polygon_rtree_map_buffer_[map_buffer_index_]);
+
+        // update the buffer map
+        lanelets_polygon_rtree_map_buffer_[new_buffer_index] = tmp_map;
+        map_buffer_index_ = new_buffer_index;
+
+        {
+          std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
+          // update current map in use
+          lanelets_polygon_rtree_map_ = lanelets_polygon_rtree_map_buffer_[new_buffer_index];
+        }
+      }
+    });
+  }
 }
 
 template <typename ObjsMsgType, typename ObjMsgType>
@@ -383,6 +577,9 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::objectCallback(
     RCLCPP_ERROR(get_logger(), "Failed transform to %s.", lanelet_frame_id_.c_str());
     return;
   }
+
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
 
   if (!transformed_objects.objects.empty()) {
     // calculate convex hull
@@ -428,6 +625,9 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::filterObject(
   const ObjMsgType & transformed_object, const ObjMsgType & input_object,
   const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree, ObjsMsgType & output_object_msg)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
     // no tree, then no intersection
@@ -467,11 +667,18 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::filterObject(
       transformed_object.kinematics.orientation_availability ==
       autoware_perception_msgs::msg::TrackedObjectKinematics::UNAVAILABLE;
     if (filter_settings_.lanelet_direction_filter && !orientation_not_available && filter_pass) {
+      std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+      if (time_keeper_)
+        inner_st_ptr =
+          std::make_unique<ScopedTimeTrack>("isSameDirectionWithLanelets", *time_keeper_);
       filter_pass = isSameDirectionWithLanelets(transformed_object, candidates);
     }
 
     // 3. check if the object is above the lanelets
     if (filter_settings_.lanelet_object_elevation_filter && filter_pass) {
+      std::unique_ptr<ScopedTimeTrack> inner_st_ptr;
+      if (time_keeper_)
+        inner_st_ptr = std::make_unique<ScopedTimeTrack>("isObjectAboveLanelet", *time_keeper_);
       filter_pass = isObjectAboveLanelet(transformed_object, candidates);
     }
 
@@ -693,6 +900,9 @@ template <typename ObjsMsgType, typename ObjMsgType>
 bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
   const ObjMsgType & object, const std::vector<BoxAndLanelet> & lanelet_candidates)
 {
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
   // assuming the positions are already the center of the cluster (convex hull)
   // for an exact calculation of the center from the points,
   // we should use autoware_utils::transform_point before computing the cluster
@@ -723,9 +933,25 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
     }
   }
 
-  return isPointAboveLaneletMesh(
-    centroid, nearest_lanelet, half_dim_z, filter_settings_.min_elevation_threshold,
-    filter_settings_.max_elevation_threshold);
+  {
+    // block for preventing map update among the process
+
+    std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
+    auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());
+    if (it == lanelets_polygon_rtree_map_.end()) {
+      // return true for safety
+      // also handles the case when map has been updated while the filtering process
+      return true;
+    }
+
+    // return isPointAboveLaneletMesh(
+    //   centroid, nearest_lanelet, half_dim_z, filter_settings_.min_elevation_threshold,
+    //   filter_settings_.max_elevation_threshold);
+
+    return isPointAboveLaneletMesh(
+      centroid, it->second, half_dim_z, filter_settings_.min_elevation_threshold,
+      filter_settings_.max_elevation_threshold);
+  }
 }
 
 // explicit instantiation
