@@ -129,14 +129,8 @@ private:
   std::mutex mtx_polygon_map_access_;
   // the lanelets polygon map that is used to lookup
   std::unordered_map<lanelet::Id, LaneletPolygonData> lanelets_polygon_rtree_map_;
-  // currently we only need 1 for using and 1 for backgound update
-  static constexpr size_t buffer_size_ = 2;
-  std::array<std::unordered_map<lanelet::Id, LaneletPolygonData>, buffer_size_>
-    lanelets_polygon_rtree_map_buffer_;
-  size_t map_buffer_index_ = 0;
 
   utils::FilterTargetLabel filter_target_;
-  double ego_base_height_ = 0.0;
   struct FilterSettings
   {
     bool lanelet_xy_overlap_filter;
@@ -176,6 +170,12 @@ private:
   rclcpp::Publisher<autoware_utils::ProcessingTimeDetail>::SharedPtr
     detailed_processing_time_publisher_;
   std::shared_ptr<autoware_utils::TimeKeeper> time_keeper_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr point_marker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr triangle_merker_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr query_to_vertex_merker_pub_;
+
+  std::vector<Eigen::Vector3d> query_points_;
+  std::vector<std::array<Eigen::Vector3d, 3>> nearest_triangles_;
 };
 
 }  // namespace lanelet_filter

@@ -25,6 +25,7 @@
 #include <autoware_perception_msgs/msg/detected_objects.hpp>
 #include <autoware_perception_msgs/msg/tracked_object.hpp>
 #include <autoware_perception_msgs/msg/tracked_objects.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <boost/geometry/algorithms/convex_hull.hpp>
 #include <boost/geometry/algorithms/disjoint.hpp>
@@ -56,6 +57,120 @@ using LaneletEntryMap = std::unordered_map<lanelet::Id, LaneletEntry>;
 
 // using TriangleMesh = std::vector<std::array<Eigen::Vector3d, 3>>;
 using autoware_utils::ScopedTimeTrack;
+
+visualization_msgs::msg::Marker create_point_marker(std::vector<Eigen::Vector3d> query_points)
+{
+  auto marker = visualization_msgs::msg::Marker();
+  marker.type = visualization_msgs::msg::Marker::POINTS;
+
+  marker.header.frame_id = "map";  // or your reference frame
+  marker.ns = "my_points";
+  marker.id = 244;
+  marker.type = visualization_msgs::msg::Marker::POINTS;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.scale.x = 0.25;  // width
+  marker.scale.y = 0.25;  // height
+  marker.color.r = 1.0;
+  marker.color.g = 0.0;
+  marker.color.b = 0.0;
+  marker.color.a = 1.0;
+
+  for (const auto & qp : query_points) {
+    geometry_msgs::msg::Point pt;
+    pt.x = qp.x();
+    pt.y = qp.y();
+    pt.z = qp.z();
+    marker.points.push_back(pt);
+  }
+
+  return marker;
+}
+
+visualization_msgs::msg::Marker create_triangle_marker(
+  std::vector<std::array<Eigen::Vector3d, 3>> nearest_triangles)
+{
+  auto tri_marker = visualization_msgs::msg::Marker();
+  tri_marker.type = visualization_msgs::msg::Marker::TRIANGLE_LIST;
+
+  tri_marker.header.frame_id = "map";
+  tri_marker.ns = "my_triangles";
+  tri_marker.id = 245;
+  tri_marker.type = visualization_msgs::msg::Marker::TRIANGLE_LIST;
+  tri_marker.action = visualization_msgs::msg::Marker::ADD;
+  tri_marker.scale.x = tri_marker.scale.y = tri_marker.scale.z = 1.0;
+  tri_marker.color.r = 0.0;
+  tri_marker.color.g = 1.0;
+  tri_marker.color.b = 0.0;
+  tri_marker.color.a = 0.7;
+
+  // Each group of 3 points forms a triangle
+  geometry_msgs::msg::Point p1, p2, p3;
+  for (const auto & tri : nearest_triangles) {
+    for (int i = 0; i < 3; ++i) {
+      geometry_msgs::msg::Point pt;
+      pt.x = tri[i].x();
+      pt.y = tri[i].y();
+      pt.z = tri[i].z() + 0.1;
+      tri_marker.points.push_back(pt);
+    }
+  }
+
+  return tri_marker;
+}
+
+visualization_msgs::msg::Marker create_relation_line_marker(
+  std::vector<Eigen::Vector3d> query_points,
+  std::vector<std::array<Eigen::Vector3d, 3>> nearest_triangles)
+{
+  auto line_marker = visualization_msgs::msg::Marker();
+  line_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+
+  line_marker.header.frame_id = "map";
+  line_marker.ns = "point_to_vertex";
+  line_marker.id = 246;
+  line_marker.action = visualization_msgs::msg::Marker::ADD;
+  line_marker.scale.x = 0.05;  // Line width
+  line_marker.color.r = 0.8;
+  line_marker.color.g = 0.8;
+  line_marker.color.b = 0.0;
+  line_marker.color.a = 0.7;
+
+  // Each group of 3 points forms a triangle
+  geometry_msgs::msg::Point p1, p2, p3;
+  for (size_t i = 0; i < query_points.size(); i++) {
+    auto qp = query_points[i];
+    geometry_msgs::msg::Point pt;
+    pt.x = qp.x();
+    pt.y = qp.y();
+    pt.z = qp.z();
+
+    auto tri = nearest_triangles[i];
+    geometry_msgs::msg::Point v1, v2, v3;
+    v1.x = tri[0].x();
+    v1.y = tri[0].y();
+    v1.z = tri[0].z() + 0.1;
+
+    v2.x = tri[1].x();
+    v2.y = tri[1].y();
+    v2.z = tri[1].z() + 0.1;
+
+    v3.x = tri[2].x();
+    v3.y = tri[2].y();
+    v3.z = tri[2].z() + 0.1;
+
+    // create line from query point to vertices
+    line_marker.points.push_back(pt);
+    line_marker.points.push_back(v1);
+
+    line_marker.points.push_back(pt);
+    line_marker.points.push_back(v2);
+
+    line_marker.points.push_back(pt);
+    line_marker.points.push_back(v3);
+  }
+
+  return line_marker;
+}
 
 template <typename ObjsMsgType, typename ObjMsgType>
 ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::ObjectLaneletFilterBase(
@@ -126,6 +241,13 @@ ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::ObjectLaneletFilterBase(
       "~/debug/processing_time_detail_ms", 1);
   auto time_keeper = autoware_utils::TimeKeeper(detailed_processing_time_publisher_);
   time_keeper_ = std::make_shared<autoware_utils::TimeKeeper>(time_keeper);
+
+  point_marker_pub_ =
+    create_publisher<visualization_msgs::msg::Marker>("~/debug/query_marker", rclcpp::QoS{1});
+  triangle_merker_pub_ =
+    create_publisher<visualization_msgs::msg::Marker>("~/debug/triangle_marker", rclcpp::QoS{1});
+  query_to_vertex_merker_pub_ = create_publisher<visualization_msgs::msg::Marker>(
+    "~/debug/query_to_vertex_marker", rclcpp::QoS{1});
 }
 
 template <typename ObjsMsgType, typename ObjMsgType>
@@ -292,7 +414,7 @@ Eigen::Vector3d computeFaceNormal(const std::array<Eigen::Vector3d, 3> & triangl
 
   // ensure the normal is pointing upward (Z+)
   // NOTE: the triangle points are in CCW order, but there is no guarantee for
-  //   lanelet's left bound and right bound to be not crossing (break the CCW order).
+  //       lanelet's left bound and right bound to be not crossing (break the CCW order).
   if (normal.z() < 0) {
     normal = -normal;
   }
@@ -421,7 +543,8 @@ bool isPointAboveLaneletMesh(
 */
 bool isPointAboveLaneletMesh(
   const Eigen::Vector3d & point, const LaneletPolygonData & lanelet_data, const double & offset,
-  const double & min_distance, const double & max_distance)
+  const double & min_distance, const double & max_distance,
+  std::vector<std::array<Eigen::Vector3d, 3>> & nearest_triangle_list)
 {
   // if (mesh.empty()) return true;
 
@@ -431,6 +554,8 @@ bool isPointAboveLaneletMesh(
     // consider as above for safety
     return true;
   }
+
+  nearest_triangle_list.push_back(nearest_triangle.points3d);
 
   Eigen::Vector3d closest_normal;
   const Eigen::Vector3d plane_normal_vec = computeFaceNormal(nearest_triangle.points3d);
@@ -515,39 +640,33 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::mapCallback(
   const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr map_msg)
 {
   // for the first time, run in single thread
-  // Note: In the current Autoware, there is no dynamic loading mechanism for vector map.
-  //  So this callback should run only once.
+  // NOTE: In the current Autoware, there is no dynamic loading mechanism for vector map.
+  //       So this callback should run only once.
   if (!lanelet_map_ptr_) {
     lanelet_frame_id_ = map_msg->header.frame_id;
     lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
     lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
 
-    buildLaneletPolygonMap(lanelet_map_ptr_, lanelets_polygon_rtree_map_buffer_[map_buffer_index_]);
+    lanelets_polygon_rtree_map_ =
+      buildLaneletPolygonMap(lanelet_map_ptr_, lanelets_polygon_rtree_map_);
   } else {
     lanelet_frame_id_ = map_msg->header.frame_id;
     lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
     lanelet::utils::conversion::fromBinMsg(*map_msg, lanelet_map_ptr_);
 
     worker_threads_.emplace_back([this]() {
-      // NOTE: blocking does not ensured the order. so if callback get called multiple time
-      //   in short period, it might break the data.
+      // NOTE: Blocking does not ensured the order. so if callback get called multiple time
+      //       in short period, it might break the data.
       {
         std::lock_guard<std::mutex> lock(mtx_update_polygon_map_);
 
-        size_t new_buffer_index = map_buffer_index_ + 1;
-        if (new_buffer_index >= buffer_size_) new_buffer_index = 0;
-
-        std::unordered_map<lanelet::Id, LaneletPolygonData> tmp_map = buildLaneletPolygonMap(
-          lanelet_map_ptr_, lanelets_polygon_rtree_map_buffer_[map_buffer_index_]);
-
-        // update the buffer map
-        lanelets_polygon_rtree_map_buffer_[new_buffer_index] = tmp_map;
-        map_buffer_index_ = new_buffer_index;
+        std::unordered_map<lanelet::Id, LaneletPolygonData> tmp_map =
+          buildLaneletPolygonMap(lanelet_map_ptr_, lanelets_polygon_rtree_map_);
 
         {
           std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
           // update current map in use
-          lanelets_polygon_rtree_map_ = lanelets_polygon_rtree_map_buffer_[new_buffer_index];
+          lanelets_polygon_rtree_map_ = tmp_map;
         }
       }
     });
@@ -597,11 +716,19 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::objectCallback(
     if (filter_settings_.debug) {
       publishDebugMarkers(input_msg->header.stamp, convex_hull, intersected_lanelets_with_bbox);
     }
-    // filtering process
-    for (size_t index = 0; index < transformed_objects.objects.size(); ++index) {
-      const auto & transformed_object = transformed_objects.objects.at(index);
-      const auto & input_object = input_msg->objects.at(index);
-      filterObject(transformed_object, input_object, local_rtree, output_object_msg);
+
+    {
+      // block for preventing map update among the process
+
+      // lock for preventing the update on lanelets_polygon_rtree_map_
+      std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
+
+      // filtering process
+      for (size_t index = 0; index < transformed_objects.objects.size(); ++index) {
+        const auto & transformed_object = transformed_objects.objects.at(index);
+        const auto & input_object = input_msg->objects.at(index);
+        filterObject(transformed_object, input_object, local_rtree, output_object_msg);
+      }
     }
   }
 
@@ -618,6 +745,41 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::objectCallback(
     "debug/pipeline_latency_ms", pipeline_latency);
   debug_publisher_->publish<autoware_internal_debug_msgs::msg::Float64Stamped>(
     "debug/processing_time_ms", stop_watch_ptr_->toc("processing_time", true));
+
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id = "map";
+  marker.header.stamp = input_msg->header.stamp;
+  marker.ns = "my_points";
+  marker.id = 244;  // ID of marker you want to delete
+  marker.action = visualization_msgs::msg::Marker::DELETE;
+  // remove the markers
+  point_marker_pub_->publish(marker);
+
+  marker.ns = "my_triangles";
+  marker.id = 245;  // ID of marker you want to delete
+  marker.action = visualization_msgs::msg::Marker::DELETE;
+  // remove the markers
+  triangle_merker_pub_->publish(marker);
+
+  marker.ns = "point_to_vertex";
+  marker.id = 246;  // ID of marker you want to delete
+  marker.action = visualization_msgs::msg::Marker::DELETE;
+  // remove the markers
+  query_to_vertex_merker_pub_->publish(marker);
+
+  auto query_point_maker = create_point_marker(query_points_);
+  auto triangle_marker = create_triangle_marker(nearest_triangles_);
+  auto query_to_vertex = create_relation_line_marker(query_points_, nearest_triangles_);
+
+  query_point_maker.header.stamp = input_msg->header.stamp;
+  triangle_marker.header.stamp = input_msg->header.stamp;
+
+  triangle_merker_pub_->publish(triangle_marker);
+  point_marker_pub_->publish(query_point_maker);
+  query_to_vertex_merker_pub_->publish(query_to_vertex);
+
+  query_points_.clear();
+  nearest_triangles_.clear();
 }
 
 template <typename ObjsMsgType, typename ObjMsgType>
@@ -933,25 +1095,22 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
     }
   }
 
-  {
-    // block for preventing map update among the process
-
-    std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
-    auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());
-    if (it == lanelets_polygon_rtree_map_.end()) {
-      // return true for safety
-      // also handles the case when map has been updated while the filtering process
-      return true;
-    }
-
-    // return isPointAboveLaneletMesh(
-    //   centroid, nearest_lanelet, half_dim_z, filter_settings_.min_elevation_threshold,
-    //   filter_settings_.max_elevation_threshold);
-
-    return isPointAboveLaneletMesh(
-      centroid, it->second, half_dim_z, filter_settings_.min_elevation_threshold,
-      filter_settings_.max_elevation_threshold);
+  auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());
+  if (it == lanelets_polygon_rtree_map_.end()) {
+    // return true for safety
+    // also handles the case when map has been updated while the filtering process
+    return true;
   }
+
+  // return isPointAboveLaneletMesh(
+  //   centroid, nearest_lanelet, half_dim_z, filter_settings_.min_elevation_threshold,
+  //   filter_settings_.max_elevation_threshold);
+
+  query_points_.push_back(centroid);
+
+  return isPointAboveLaneletMesh(
+    centroid, it->second, half_dim_z, filter_settings_.min_elevation_threshold,
+    filter_settings_.max_elevation_threshold, nearest_triangles_);
 }
 
 // explicit instantiation
