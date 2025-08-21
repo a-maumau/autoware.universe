@@ -66,7 +66,8 @@ visualization_msgs::msg::Marker create_point_marker(std::vector<Eigen::Vector3d>
   marker.header.frame_id = "map";  // or your reference frame
   marker.ns = "my_points";
   marker.id = 244;
-  marker.type = visualization_msgs::msg::Marker::POINTS;
+  marker.lifetime = rclcpp::Duration::from_seconds(0.5) marker.type =
+    visualization_msgs::msg::Marker::POINTS;
   marker.action = visualization_msgs::msg::Marker::ADD;
   marker.scale.x = 0.25;  // width
   marker.scale.y = 0.25;  // height
@@ -95,7 +96,8 @@ visualization_msgs::msg::Marker create_triangle_marker(
   tri_marker.header.frame_id = "map";
   tri_marker.ns = "my_triangles";
   tri_marker.id = 245;
-  tri_marker.type = visualization_msgs::msg::Marker::TRIANGLE_LIST;
+  tri_marker.lifetime = rclcpp::Duration::from_seconds(0.5) tri_marker.type =
+    visualization_msgs::msg::Marker::TRIANGLE_LIST;
   tri_marker.action = visualization_msgs::msg::Marker::ADD;
   tri_marker.scale.x = tri_marker.scale.y = tri_marker.scale.z = 1.0;
   tri_marker.color.r = 0.0;
@@ -128,7 +130,8 @@ visualization_msgs::msg::Marker create_relation_line_marker(
   line_marker.header.frame_id = "map";
   line_marker.ns = "point_to_vertex";
   line_marker.id = 246;
-  line_marker.action = visualization_msgs::msg::Marker::ADD;
+  line_marker.lifetime = rclcpp::Duration::from_seconds(0.5) line_marker.action =
+    visualization_msgs::msg::Marker::ADD;
   line_marker.scale.x = 0.05;  // Line width
   line_marker.color.r = 0.8;
   line_marker.color.g = 0.8;
@@ -261,7 +264,7 @@ ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::~ObjectLaneletFilterBase()
 
 bool isInPolygon(
   const geometry_msgs::msg::Pose & current_pose, const lanelet::BasicPolygon2d & polygon,
-  const double radius)
+  const double & radius)
 {
   constexpr double eps = 1.0e-9;
   const lanelet::BasicPoint2d p(current_pose.position.x, current_pose.position.y);
@@ -269,11 +272,19 @@ bool isInPolygon(
 }
 
 bool isInPolygon(
-  const double & x, const double & y, const lanelet::BasicPolygon2d & polygon, const double radius)
+  const double & x, const double & y, const lanelet::BasicPolygon2d & polygon,
+  const double & radius)
 {
   constexpr double eps = 1.0e-9;
   const lanelet::BasicPoint2d p(x, y);
   return boost::geometry::distance(p, polygon) < radius + eps;
+}
+
+double distFromClosestPolygon(
+  const double & x, const double & y, const lanelet::BasicPolygon2d & polygon)
+{
+  const lanelet::BasicPoint2d p(x, y);
+  return boost::geometry::distance(p, polygon);
 }
 
 LinearRing2d expandPolygon(const LinearRing2d & polygon, double distance)
@@ -656,7 +667,7 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::mapCallback(
 
     worker_threads_.emplace_back([this]() {
       // NOTE: Blocking does not ensured the order. so if callback get called multiple time
-      //       in short period, it might break the data.
+      //       in a short period, it might break the data.
       {
         std::lock_guard<std::mutex> lock(mtx_update_polygon_map_);
 
@@ -665,7 +676,7 @@ void ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::mapCallback(
 
         {
           std::lock_guard<std::mutex> lock(mtx_polygon_map_access_);
-          // update current map in use
+          // update current map
           lanelets_polygon_rtree_map_ = tmp_map;
         }
       }
@@ -1093,6 +1104,13 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
       closest_lanelet_z_dist = dist_z;
       nearest_lanelet = llt;
     }
+
+    // search the most nearest lanelet
+    // const dist_xy = distFromClosestPolygon(cx, xy, candidate_lanelet.second.polygon);
+    // if (dist_xy = 0.0) {
+    //  // if distance is 0.0, it is inside the polygon
+    //  break;
+    //}
   }
 
   auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());
