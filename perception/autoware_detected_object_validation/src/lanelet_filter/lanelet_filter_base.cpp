@@ -209,6 +209,9 @@ ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::ObjectLaneletFilterBase(
     "filter_settings.lanelet_object_elevation_filter.max_elevation_threshold");
   filter_settings_.min_elevation_threshold = declare_parameter<double>(
     "filter_settings.lanelet_object_elevation_filter.min_elevation_threshold");
+  const double abs_max_elevation =
+    std::max(filter_settings_.max_elevation_threshold, filter_settings_.min_elevation_threshold);
+  elevation_min_z_dist_sq_ = abs_max_elevation * abs_max_elevation;
 
   filter_settings_.lanelet_extra_margin =
     declare_parameter<double>("filter_settings.lanelet_extra_margin");
@@ -446,6 +449,20 @@ bool findNearestTriangle(
   return false;
 }
 
+std::vector<Triangle> searchNearestTriangle(
+  const LaneletPolygonData & data, const Point2d & query, Triangle & triangle)
+{
+  std::vector<RTreeValue> result;
+  std::vector<Triangle> data.rtree.query(
+    boost::geometry::index::nearest(query, 1), std::back_inserter(result));
+  if (!result.empty()) {
+    triangle = data.mesh[result[0].second];
+
+    return true;
+  }
+  return false;
+}
+
 // checks whether a point is located above the lanelet triangle plane
 // that is closest in the perpendicular direction
 /*
@@ -600,6 +617,39 @@ bool isPointAboveLaneletMesh(
   return false;
 }
 
+std::vector<geometry_msgs::msg::Pose> getLaneletCenterline(const lanelet::ConstLanelet & lanelet)
+{
+  bool first_elem_flag = true;
+  std::vector<geometry_msgs::msg::Pose> centerline_path geometry_msgs::msg::Pose prev_p;
+
+  for (const auto & lanelet_p : lanelet.centerline3d()) {
+    geometry_msgs::msg::Pose current_p;
+    current_p.position = lanelet::utils::conversion::toGeomMsgPt(lanelet_p);
+
+    if (first_elem_flag) {
+      first_elem_flag = false;
+      prev_p = current_p;
+
+      continue;
+    }
+
+    // only considers yaw of the lanelet
+    const double lane_yaw = std::atan2(
+      current_p.position.y - prev_p.position.y, current_p.position.x - prev_p.position.x);
+    const double sin_yaw_half = std::sin(lane_yaw / 2.0);
+    const double cos_yaw_half = std::cos(lane_yaw / 2.0);
+    current_p.orientation.x = 0.0;
+    current_p.orientation.y = 0.0;
+    current_p.orientation.z = sin_yaw_half;
+    current_p.orientation.w = cos_yaw_half;
+
+    centerline_path.push_back(current_p);
+    prev_p = current_p;
+  }
+
+  return centerline_path
+}
+
 bgi::rtree<RTreeValue, RtreeAlgo> buildRTreeFromMesh(const TriangleMesh & mesh)
 {
   std::vector<RTreeValue> values;
@@ -632,10 +682,54 @@ std::unordered_map<lanelet::Id, LaneletPolygonData> buildLaneletPolygonMap(
 
       const lanelet::Id lanelet_id = lanelet.id();
       auto it = old_map.find(lanelet_id);
-      if (it == old_map.end()) {
-        // create each r-tree for lanelet polygons
+      if (it == old_map.end()) {  // new lanelet
+        // create r-tree for this lanelet polygons
         bgi::rtree<RTreeValue, RtreeAlgo> rtree = buildRTreeFromMesh(mesh);
-        new_map.emplace(lanelet_id, LaneletPolygonData{std::move(mesh), std::move(rtree)});
+
+        const std::vector<geometry_msgs::msg::Pose> centerline_pose_path =
+          getLaneletCenterline(lanelet);
+
+        // resample the center line points
+        // in the resamplePoseVector(), flag is inverted
+        // so use_akima_spline_for_xy==true means using lerp
+        constexpr double path_resolution = 2.0  // I think it is in [m]
+          constexpr bool use_akima_spline_for_xy = true;
+        constexpr bool use_lerp_for_z = true;
+        const std::vector<geometry_msgs::msg::Point> resampled_centerline_path =
+          autoware::motion_utils::resamplePoseVector(
+            centerline_path, path_resolution, use_akima_spline_for_xy, use_lerp_for_z);
+
+        for (const auto & p : resampled_centerline_path) {
+          const Point2d query_point2d(p.x, p.y);
+          std::vector<RTreeValue> result;
+          std::vector<Triangle>
+            // we created a bounding box of triangle which is created from rectangle
+            // so we will fetch at least 2 to ensure the most nearest (= contains the point) exist
+            constexpr unsingned int search_num = 2 rtree.query(
+              boost::geometry::index::nearest(query, search_num), std::back_inserter(result));
+
+          // find the actual polygon that contains the point
+          double min_dist_from_polygon = std::numeric_limits<double>::infinity();
+          for (const auto & r : result) {
+            const double dist_from_polygon =
+              distFromClosestPolygon(query_point2d.x, query_point2d.y, mesh[r.second]);
+
+            // incase the point does not fall in the polygon, we will check both points
+            // so, no early return here
+            if (dist_from_polygon < min_dist_from_polygon) {
+              min_dist_from_polygon = dist_from_polygon;
+              assign_polygon = mesh[r.second];
+              // psudo (python) code
+              // points_list.append((point, mesh[r.second]))
+            }
+          }
+
+          // psudo (python) code
+          // points_list.append((point, assign_polygon))
+        }
+
+        // old code
+        // new_map.emplace(lanelet_id, LaneletPolygonData{std::move(mesh), std::move(rtree)});
       } else {
         // if ID exist, reuse it
         new_map.emplace(lanelet_id, it->second);
@@ -1088,6 +1182,7 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
 
   lanelet::ConstLanelet nearest_lanelet;
   double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
+  double min_dist_xy = std::numeric_limits<double>::infinity();
 
   // search for the nearest lanelet along the z-axis in case roads are layered
   for (const auto & candidate_lanelet : lanelet_candidates) {
@@ -1095,22 +1190,34 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
     const lanelet::ConstLineString3d line = llt.leftBound();
     if (line.empty()) continue;
 
+    /////////////////////////////////////////////////////////
+    // legacy
     // assuming the roads have enough height difference to distinguish each other
-    const double diff_z = cz - line[0].z();
-    const double dist_z = diff_z * diff_z;
+    // const double diff_z = cz - line[0].z();
+    // const double dist_z = diff_z * diff_z;
 
     // use the closest lanelet in z axis
-    if (dist_z < closest_lanelet_z_dist) {
-      closest_lanelet_z_dist = dist_z;
-      nearest_lanelet = llt;
-    }
+    // if (dist_z < closest_lanelet_z_dist) {
+    //  closest_lanelet_z_dist = dist_z;
+    //  nearest_lanelet = llt;
+    //}
+    /////////////////////////////////////////////////////////
+
+    const double diff_z = cz - line[0].z();
+    if (diff_z * diff_z > elevation_min_z_dist_sq_) continue;
 
     // search the most nearest lanelet
-    // const dist_xy = distFromClosestPolygon(cx, xy, candidate_lanelet.second.polygon);
-    // if (dist_xy = 0.0) {
-    //  // if distance is 0.0, it is inside the polygon
-    //  break;
-    //}
+    const dist_xy = distFromClosestPolygon(cx, xy, candidate_lanelet.second.polygon);
+    if (dist_xy = 0.0) {
+      // if distance is 0.0, it is inside the polygon
+      nearest_lanelet = llt;
+      break;
+    }
+
+    if (dist_xy < min_dist_xy) {
+      min_dist_xy = dist_xy;
+      nearest_lanelet = llt;
+    }
   }
 
   auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());

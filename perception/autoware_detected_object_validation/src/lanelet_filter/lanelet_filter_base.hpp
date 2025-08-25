@@ -86,7 +86,6 @@ struct LaneletBox
   lanelet::Lanelet lanelet;
 };
 
-// used for storing a la
 struct PolygonAndLanelet
 {
   lanelet::BasicPolygon2d polygon;
