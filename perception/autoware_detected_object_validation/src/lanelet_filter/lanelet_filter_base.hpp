@@ -79,6 +79,12 @@ struct LaneletPolygonData
   bgi::rtree<RTreeValue, RtreeAlgo> rtree;
 };
 
+struct LaneletCenterLineData
+{
+  TriangleMesh mesh;
+  std::array<Point2d> point bgi::rtree<RTreeValue, RtreeAlgo> rtree;
+};
+
 // used for storing a lanelet's polygon
 struct LaneletBox
 {
@@ -92,6 +98,7 @@ struct PolygonAndLanelet
   lanelet::ConstLanelet lanelet;
 };
 using BoxAndLanelet = std::pair<Box, PolygonAndLanelet>;
+using CenterLinePointAndPolygonIndex = std::pair<Point2d, size_t>;
 
 template <typename ObjsMsgType, typename ObjMsgType>
 class ObjectLaneletFilterBase : public rclcpp::Node
@@ -127,7 +134,9 @@ private:
   std::mutex mtx_update_polygon_map_;
   std::mutex mtx_polygon_map_access_;
   // the lanelets polygon map that is used to lookup
-  std::unordered_map<lanelet::Id, LaneletPolygonData> lanelets_polygon_rtree_map_;
+  // std::unordered_map<lanelet::Id, LaneletPolygonData> lanelets_polygon_rtree_map_;
+  std::unordered_map<lanelet::Id, std::vector<CenterLinePointAndPolygonIndex>>
+    lanelets_centerline_map_;
 
   utils::FilterTargetLabel filter_target_;
   struct FilterSettings

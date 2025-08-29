@@ -699,15 +699,18 @@ std::unordered_map<lanelet::Id, LaneletPolygonData> buildLaneletPolygonMap(
           autoware::motion_utils::resamplePoseVector(
             centerline_path, path_resolution, use_akima_spline_for_xy, use_lerp_for_z);
 
+        std::vector<CenterLinePointAndPolygonIndex> centerline_points_and_polygon_index;
+
         for (const auto & p : resampled_centerline_path) {
           const Point2d query_point2d(p.x, p.y);
           std::vector<RTreeValue> result;
-          std::vector<Triangle>
-            // we created a bounding box of triangle which is created from rectangle
-            // so we will fetch at least 2 to ensure the most nearest (= contains the point) exist
-            constexpr unsingned int search_num = 2 rtree.query(
-              boost::geometry::index::nearest(query, search_num), std::back_inserter(result));
+          // std::vector<Triangle> aaaaaaaaaaaaaaaaa;
+          //  we created a bounding box of triangle which is created from rectangle
+          //  so we will fetch at least 2 to ensure the most nearest (= contains the point) exist
+          constexpr unsingned int search_num = 2 rtree.query(
+            boost::geometry::index::nearest(query, search_num), std::back_inserter(result));
 
+          size_t assign_mesh_index;
           // find the actual polygon that contains the point
           double min_dist_from_polygon = std::numeric_limits<double>::infinity();
           for (const auto & r : result) {
@@ -719,17 +722,19 @@ std::unordered_map<lanelet::Id, LaneletPolygonData> buildLaneletPolygonMap(
             if (dist_from_polygon < min_dist_from_polygon) {
               min_dist_from_polygon = dist_from_polygon;
               assign_polygon = mesh[r.second];
-              // psudo (python) code
-              // points_list.append((point, mesh[r.second]))
+              assign_mesh_index = r.second;
             }
           }
 
           // psudo (python) code
           // points_list.append((point, assign_polygon))
+          centerline_points_and_polygon_index.emplace_back({query_point2d, assign_mesh_index})
         }
 
         // old code
         // new_map.emplace(lanelet_id, LaneletPolygonData{std::move(mesh), std::move(rtree)});
+        new_map.emplace(lanelet_id, centerline_points_and_polygon_index);
+
       } else {
         // if ID exist, reuse it
         new_map.emplace(lanelet_id, it->second);
@@ -1163,6 +1168,8 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isSameDirectionWithLanele
   return false;
 }
 
+// this is the old one with polygon search with rtree
+/*
 template <typename ObjsMsgType, typename ObjMsgType>
 bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
   const ObjMsgType & object, const std::vector<BoxAndLanelet> & lanelet_candidates)
@@ -1187,6 +1194,97 @@ bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
   // search for the nearest lanelet along the z-axis in case roads are layered
   for (const auto & candidate_lanelet : lanelet_candidates) {
     const lanelet::ConstLanelet llt = candidate_lanelet.second.lanelet;
+    const lanelet::ConstLineString3d line = llt.leftBound();
+    if (line.empty()) continue;
+
+    /////////////////////////////////////////////////////////
+    // legacy
+    // assuming the roads have enough height difference to distinguish each other
+    // const double diff_z = cz - line[0].z();
+    // const double dist_z = diff_z * diff_z;
+
+    // use the closest lanelet in z axis
+    // if (dist_z < closest_lanelet_z_dist) {
+    //  closest_lanelet_z_dist = dist_z;
+    //  nearest_lanelet = llt;
+    //}
+    /////////////////////////////////////////////////////////
+
+    const double diff_z = cz - line[0].z();
+    if (diff_z * diff_z > elevation_min_z_dist_sq_) continue;
+
+    // search the most nearest lanelet
+    const dist_xy = distFromClosestPolygon(cx, xy, candidate_lanelet.second.polygon);
+    if (dist_xy = 0.0) {
+      // if distance is 0.0, it is inside the polygon
+      nearest_lanelet = llt;
+      break;
+    }
+
+    if (dist_xy < min_dist_xy) {
+      min_dist_xy = dist_xy;
+      nearest_lanelet = llt;
+    }
+  }
+
+  auto it = lanelets_polygon_rtree_map_.find(nearest_lanelet.id());
+  if (it == lanelets_polygon_rtree_map_.end()) {
+    // return true for safety
+    // also handles the case when map has been updated while the filtering process
+    return true;
+  }
+
+  // return isPointAboveLaneletMesh(
+  //   centroid, nearest_lanelet, half_dim_z, filter_settings_.min_elevation_threshold,
+  //   filter_settings_.max_elevation_threshold);
+
+  query_points_.push_back(centroid);
+
+  return isPointAboveLaneletMesh(
+    centroid, it->second, half_dim_z, filter_settings_.min_elevation_threshold,
+    filter_settings_.max_elevation_threshold, nearest_triangles_);
+}*/
+template <typename ObjsMsgType, typename ObjMsgType>
+bool ObjectLaneletFilterBase<ObjsMsgType, ObjMsgType>::isObjectAboveLanelet(
+  const ObjMsgType & object, const std::vector<BoxAndLanelet> & lanelet_candidates)
+{
+  std::unique_ptr<ScopedTimeTrack> st_ptr;
+  if (time_keeper_) st_ptr = std::make_unique<ScopedTimeTrack>(__func__, *time_keeper_);
+
+  // assuming the positions are already the center of the cluster (convex hull)
+  // for an exact calculation of the center from the points,
+  // we should use autoware_utils::transform_point before computing the cluster
+  const double cx = object.kinematics.pose_with_covariance.pose.position.x;
+  const double cy = object.kinematics.pose_with_covariance.pose.position.y;
+  const double cz = object.kinematics.pose_with_covariance.pose.position.z;
+  // use the centroid as a query point
+  const Eigen::Vector3d centroid(cx, cy, cz);
+  const double half_dim_z = object.shape.dimensions.z * 0.5;
+
+  lanelet::ConstLanelet nearest_lanelet;
+  double closest_lanelet_z_dist = std::numeric_limits<double>::infinity();
+  double min_dist_xy = std::numeric_limits<double>::infinity();
+
+  // search for the nearest lanelet along the z-axis in case roads are layered
+  for (const auto & candidate_lanelet : lanelet_candidates) {
+    const lanelet::ConstLanelet llt = candidate_lanelet.second.lanelet;
+    const lanelet::Id lanelet_id = lanelet.id();
+    auto it = lanelets_centerline_map_.find(nearest_lanelet.id());
+
+    if (it == lanelets_centerline_map_.end()) {
+      // return true for safety
+      // also handles the case when map has been updated while the filtering process
+      return true;
+    }
+
+    constexpr for (const auto & point_and_index : it)
+    {
+      Point2d clp = point_and_index->first;
+      const float dx = cx - clp.x;
+      const float dx = cx - clp.y;
+      const float dist_sq = dx * dx + dy * dy;
+    }
+
     const lanelet::ConstLineString3d line = llt.leftBound();
     if (line.empty()) continue;
 
